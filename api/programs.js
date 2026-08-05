@@ -38,7 +38,9 @@ function classify(chName) {
 
 export default async function handler(req, res) {
   try {
-    if (cache.data && Date.now() - cache.ts < CACHE_MS) {
+    const debug = req.query && (req.query.debug === "1" || req.query.debug === "true");
+
+    if (!debug && cache.data && Date.now() - cache.ts < CACHE_MS) {
       res.setHeader("Cache-Control", "public, max-age=300");
       return res.status(200).json(cache.data);
     }
@@ -53,14 +55,34 @@ export default async function handler(req, res) {
       headers: {
         // しょぼいカレンダーのルールに従い、独自のUser-Agentを設定
         "User-Agent": "AnimeCourApp/0.1 (personal project; individual use)",
+        Accept: "application/json,text/plain,*/*",
       },
     });
+
+    const rawText = await resp.text();
+
+    if (debug) {
+      // 実際に返ってきた内容をそのまま確認するための調査モード
+      return res.status(200).json({
+        requestUrl: url,
+        httpStatus: resp.status,
+        contentType: resp.headers.get("content-type"),
+        bodyPreview: rawText.slice(0, 1500),
+        bodyLength: rawText.length,
+      });
+    }
 
     if (!resp.ok) {
       return res.status(502).json({ error: `しょぼいカレンダーの応答エラー (status ${resp.status})` });
     }
 
-    const raw = await resp.json();
+    let raw;
+    try {
+      raw = JSON.parse(rawText);
+    } catch (e) {
+      return res.status(502).json({ error: "しょぼいカレンダーの応答がJSONとして解釈できませんでした" });
+    }
+
     const programs = toArray(raw.Programs);
     const titlesRaw = raw.Titles || {};
 
