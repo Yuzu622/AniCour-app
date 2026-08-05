@@ -36,8 +36,37 @@ const CATEGORY_STYLE = {
   chijou: { label: "地上波", color: "#17B978", soft: "#DFF7EC" },
   bs: { label: "BS", color: "#FF9F1C", soft: "#FFEFD6" },
   cs: { label: "CS", color: "#22C3C3", soft: "#DBF6F6" },
-  streaming: { label: "配信", color: "#8B5CF6", soft: "#EEE7FE" },
 };
+
+// 配信サービスごとの色(サーバー側classify()のprovider名と対応)
+const PROVIDER_STYLE = {
+  Netflix: { color: "#E5062C", soft: "#FCE0E4" },
+  dアニメストア: { color: "#8B5CF6", soft: "#EEE7FE" },
+  "Prime Video": { color: "#00A8E1", soft: "#DFF3FC" },
+  ABEMA: { color: "#00CC66", soft: "#DFFAEA" },
+  "DMM TV": { color: "#FF6B00", soft: "#FFE9D6" },
+  Hulu: { color: "#3DBB3D", soft: "#E1F7E1" },
+  "U-NEXT": { color: "#2B2140", soft: "#E7E4EC" },
+  "Disney+": { color: "#113CCF", soft: "#E1E7FB" },
+  ニコニコ: { color: "#FF9900", soft: "#FFF1DB" },
+  FOD: { color: "#E4007F", soft: "#FCE1EF" },
+  Lemino: { color: "#7B2FF7", soft: "#EEE3FE" },
+  アニメLIVE: { color: "#00BFA5", soft: "#DFFAF6" },
+};
+const FALLBACK_STYLE = { color: "#8577A3", soft: "#EFEBF5" };
+
+// 視聴オプション1件ぶんの色・ラベル・絞り込み用キーをまとめて解決する
+function styleFor(o) {
+  if (o.category === "streaming") return PROVIDER_STYLE[o.provider] || FALLBACK_STYLE;
+  return CATEGORY_STYLE[o.category] || FALLBACK_STYLE;
+}
+function labelFor(o) {
+  if (o.category === "streaming") return o.provider || "配信(その他)";
+  return (CATEGORY_STYLE[o.category] || {}).label || o.category;
+}
+function groupKeyFor(o) {
+  return o.category === "streaming" ? o.provider || "streaming_other" : o.category;
+}
 
 const COUR_NAME = (month) => {
   if ([1, 2, 3].includes(month)) return "冬クール";
@@ -119,8 +148,8 @@ function AnimeRow({ anime, selected, notify, isExpanded, onToggleExpand, onSelec
                 style={{
                   fontSize: 10.5,
                   fontWeight: 700,
-                  color: CATEGORY_STYLE[chosen.category].color,
-                  background: CATEGORY_STYLE[chosen.category].soft,
+                  color: styleFor(chosen).color,
+                  background: styleFor(chosen).soft,
                   padding: "2px 8px",
                   borderRadius: 999,
                 }}
@@ -139,8 +168,8 @@ function AnimeRow({ anime, selected, notify, isExpanded, onToggleExpand, onSelec
                   style={{
                     fontSize: 10,
                     fontWeight: 700,
-                    color: CATEGORY_STYLE[o.category].color,
-                    border: `1px solid ${CATEGORY_STYLE[o.category].color}55`,
+                    color: styleFor(o).color,
+                    border: `1px solid ${styleFor(o).color}55`,
                     padding: "1px 7px",
                     borderRadius: 999,
                   }}
@@ -182,7 +211,7 @@ function AnimeRow({ anime, selected, notify, isExpanded, onToggleExpand, onSelec
         <div style={{ padding: "0 18px 14px 44px", display: "flex", flexDirection: "column", gap: 6 }}>
           <div style={{ fontSize: 11, color: INK_SOFT, marginBottom: 2 }}>視聴方法を選んでください</div>
           {anime.options.map((o) => {
-            const cat = CATEGORY_STYLE[o.category];
+            const cat = styleFor(o);
             const isChosen = chosen && chosen.id === o.id;
             return (
               <button
@@ -388,11 +417,29 @@ export default function App() {
 
   const filteredList = useMemo(() => {
     return animeList.filter((a) => {
-      const platformOk = platformFilter === null || a.options.some((o) => o.category === platformFilter);
+      const platformOk = platformFilter === null || a.options.some((o) => groupKeyFor(o) === platformFilter);
       const qOk = query.trim() === "" || a.title.includes(query.trim());
       return platformOk && qOk;
     });
   }, [animeList, platformFilter, query]);
+
+  // 今読み込めているデータの中に実際に存在するカテゴリ/配信サービスだけを絞り込みチップとして出す
+  const availableGroups = useMemo(() => {
+    const map = new Map();
+    for (const a of animeList) {
+      for (const o of a.options) {
+        const key = groupKeyFor(o);
+        if (!map.has(key)) map.set(key, { key, label: labelFor(o), style: styleFor(o) });
+      }
+    }
+    const priority = ["chijou", "bs", "cs"];
+    return Array.from(map.values()).sort((a, b) => {
+      const ai = priority.indexOf(a.key);
+      const bi = priority.indexOf(b.key);
+      if (ai !== -1 || bi !== -1) return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi);
+      return a.label.localeCompare(b.label, "ja");
+    });
+  }, [animeList]);
 
   const isToday = (cell) =>
     cell.inMonth &&
@@ -597,7 +644,7 @@ export default function App() {
                   </div>
                   <div style={{ marginTop: 5, display: "flex", flexDirection: "column", gap: 4 }}>
                     {evts.map((e) => {
-                      const cat = CATEGORY_STYLE[e.category];
+                      const cat = styleFor(e);
                       return (
                         <div
                           key={e.id}
@@ -632,23 +679,23 @@ export default function App() {
         </div>
 
         <div style={{ marginTop: 20, display: "flex", flexWrap: "wrap", gap: 8 }}>
-          {Object.entries(CATEGORY_STYLE).map(([key, c]) => (
+          {availableGroups.map((g) => (
             <div
-              key={key}
+              key={g.key}
               style={{
                 display: "flex",
                 alignItems: "center",
                 gap: 6,
                 fontSize: 12,
                 fontWeight: 700,
-                color: c.color,
-                background: c.soft,
+                color: g.style.color,
+                background: g.style.soft,
                 padding: "4px 12px",
                 borderRadius: 999,
               }}
             >
-              <span style={{ width: 8, height: 8, background: c.color, display: "inline-block", borderRadius: "50%" }} />
-              {c.label}
+              <span style={{ width: 8, height: 8, background: g.style.color, display: "inline-block", borderRadius: "50%" }} />
+              {g.label}
             </div>
           ))}
         </div>
@@ -744,17 +791,17 @@ export default function App() {
                 <button onClick={() => setPlatformFilter(null)} style={platformFilter === null ? dayChipActive : dayChip}>
                   すべて
                 </button>
-                {Object.entries(CATEGORY_STYLE).map(([key, c]) => (
+                {availableGroups.map((g) => (
                   <button
-                    key={key}
-                    onClick={() => setPlatformFilter(key)}
+                    key={g.key}
+                    onClick={() => setPlatformFilter(g.key)}
                     style={
-                      platformFilter === key
-                        ? { ...dayChipActive, background: c.color }
-                        : { ...dayChip, color: c.color, background: c.soft }
+                      platformFilter === g.key
+                        ? { ...dayChipActive, background: g.style.color }
+                        : { ...dayChip, color: g.style.color, background: g.style.soft }
                     }
                   >
-                    {c.label}
+                    {g.label}
                   </button>
                 ))}
               </div>
