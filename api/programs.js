@@ -1,6 +1,8 @@
 // Vercel Serverless Function: /api/programs
-// しょぼいカレンダー(cal.syoboi.jp)から向こう数日分の放送予定を取得し、
+// しょぼいカレンダー(cal.syoboi.jp)から放送予定を取得し、
 // 「作品ごと・視聴方法ごと」に整理してフロントエンドへ返す。
+
+const UA = "AnimeCourApp/0.1 (personal project; individual use)";
 
 let cache = { data: null, ts: 0 };
 const CACHE_MS = 10 * 60 * 1000; // 10分キャッシュ(同じサーバーインスタンスが温かい間だけ有効)
@@ -9,19 +11,27 @@ function pad(n) {
   return String(n).padStart(2, "0");
 }
 
-// しょぼいカレンダーの時刻表記をDateに変換
-// 実際にはUnixタイムスタンプ(秒)で返ってくる(例: "1785835800")
+function todayJstStr() {
+  const now = new Date();
+  const jst = new Date(now.getTime() + 9 * 60 * 60 * 1000);
+  return `${jst.getUTCFullYear()}-${pad(jst.getUTCMonth() + 1)}-${pad(jst.getUTCDate())}`;
+}
+
+function addDaysStr(dateStr, n) {
+  const [y, m, d] = dateStr.split("-").map(Number);
+  const dt = new Date(Date.UTC(y, m - 1, d));
+  dt.setUTCDate(dt.getUTCDate() + n);
+  return `${dt.getUTCFullYear()}-${pad(dt.getUTCMonth() + 1)}-${pad(dt.getUTCDate())}`;
+}
+
+// しょぼいカレンダーの時刻表記(Unixタイムスタンプ・秒)をDateに変換
 function parseSyoboiTime(raw) {
   if (raw === null || raw === undefined || raw === "") return null;
   const digits = String(raw).replace(/\D/g, "");
-
-  // 10桁 = Unixタイムスタンプ(秒)
   if (/^\d{10}$/.test(digits)) {
     const date = new Date(Number(digits) * 1000);
     return isNaN(date.getTime()) ? null : date;
   }
-
-  // 念のため YYYYMMDDHHmmss 形式(14桁)にも対応
   if (digits.length >= 14) {
     const y = digits.slice(0, 4);
     const mo = digits.slice(4, 6);
@@ -31,8 +41,16 @@ function parseSyoboiTime(raw) {
     const date = new Date(`${y}-${mo}-${d}T${h}:${mi}:00+09:00`);
     return isNaN(date.getTime()) ? null : date;
   }
-
   return null;
+}
+
+// UTCのDateから「日本時間での」曜日・時・分を取り出す(サーバーのタイムゾーン設定に依存しない)
+function getJstParts(date) {
+  const jst = new Date(date.getTime() + 9 * 60 * 60 * 1000);
+  const day = (jst.getUTCDay() + 6) % 7; // 0=月 ... 6=日
+  const hour = jst.getUTCHours();
+  const minute = jst.getUTCMinutes();
+  return { day, hour, minute };
 }
 
 function toArray(x) {
@@ -40,13 +58,52 @@ function toArray(x) {
   return Array.isArray(x) ? x : Object.values(x);
 }
 
-// チャンネル名から大まかなカテゴリを推測(地上波/BS/CS/配信)
+// チャンネル名からカテゴリ(地上波/BS/CS/配信)と、配信の場合はサービス名を推測
 function classify(chName) {
   const s = String(chName || "");
-  if (/BS/i.test(s)) return "bs";
-  if (/AT-?X|CS/i.test(s)) return "cs";
-  if (/dアニメ|Netflix|Hulu|Prime|ABEMA|U-?NEXT|Disney|ニコニコ|FOD|Lemino/i.test(s)) return "streaming";
-  return "chijou";
+  if (/AT-?X/i.test(s)) return { category: "cs", provider: null };
+  if (/BS/i.test(s)) return { category: "bs", provider: null };
+  if (/\bCS\b/i.test(s)) return { category: "cs", provider: null };
+
+  const streamMap = [
+    [/ABEMA/i, "ABEMA"],
+    [/dアニメ/i, "dアニメストア"],
+    [/Netflix/i, "Netflix"],
+    [/Hulu/i, "Hulu"],
+    [/Prime|アマゾン|Amazon/i, "Prime Video"],
+    [/U-?NEXT/i, "U-NEXT"],
+    [/Disney/i, "Disney+"],
+    [/ニコニコ/i, "ニコニコ"],
+    [/FOD/i, "FOD"],
+    [/Lemino/i, "Lemino"],
+    [/DMM/i, "DMM TV"],
+    [/アニメ*ライブ|アニメLIVE/i, "アニメLIVE"],
+  ];
+  for (const [re, name] of streamMap) {
+    if (re.test(s)) return { category: "streaming", provider: name };
+  }
+  return { category: "chijou", provider: null };
+}
+
+async function fetchJson(url) {
+  const resp = await fetch(url, {
+    headers: { "User-Agent": UA, Accept: "application/json,text/plain,*/*" },
+  });
+  const text = await resp.text();
+  if (!resp.ok) {
+    throw new Error(`しょぼいカレンダー応答エラー (status ${resp.status})`);
+  }
+  try {
+    return JSON.parse(text);
+  } catch (e) {
+    throw new Error("しょぼいカレンダーの応答がJSONとして解釈できませんでした");
+  }
+}
+
+function chunkArray(arr, size) {
+  const out = [];
+  for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size));
+  return out;
 }
 
 export default async function handler(req, res) {
@@ -58,46 +115,49 @@ export default async function handler(req, res) {
       return res.status(200).json(cache.data);
     }
 
-    const now = new Date();
-    const start = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
-    const days = 9;
+    // 9日分を3日ずつ3回に分けて取得(1回のリクエストが大きくなりすぎて
+    // しょぼいカレンダー側で切られてしまうのを避けるため)
+    const start0 = todayJstStr();
+    const starts = [start0, addDaysStr(start0, 3), addDaysStr(start0, 6)];
 
-    const url = `https://cal.syoboi.jp/json.php?Req=ProgramByDate,TitleMedium&Start=${start}&Days=${days}`;
-
-    const resp = await fetch(url, {
-      headers: {
-        // しょぼいカレンダーのルールに従い、独自のUser-Agentを設定
-        "User-Agent": "AnimeCourApp/0.1 (personal project; individual use)",
-        Accept: "application/json,text/plain,*/*",
-      },
-    });
-
-    const rawText = await resp.text();
+    const chunkResults = await Promise.all(
+      starts.map((s) => fetchJson(`https://cal.syoboi.jp/json.php?Req=ProgramByDate&Start=${s}&Days=3`))
+    );
 
     if (debug) {
-      // 実際に返ってきた内容をそのまま確認するための調査モード
       return res.status(200).json({
-        requestUrl: url,
-        httpStatus: resp.status,
-        contentType: resp.headers.get("content-type"),
-        bodyPreview: rawText.slice(0, 1500),
-        bodyLength: rawText.length,
+        starts,
+        chunkProgramCounts: chunkResults.map((r) => toArray(r.Programs).length),
+        sample: toArray(chunkResults[0].Programs).slice(0, 3),
       });
     }
 
-    if (!resp.ok) {
-      return res.status(502).json({ error: `しょぼいカレンダーの応答エラー (status ${resp.status})` });
+    // PIDで重複排除しつつ全プログラムをまとめる
+    const programMap = new Map();
+    for (const chunk of chunkResults) {
+      for (const p of toArray(chunk.Programs)) {
+        if (p && p.PID) programMap.set(p.PID, p);
+      }
     }
+    const programs = Array.from(programMap.values());
 
-    let raw;
-    try {
-      raw = JSON.parse(rawText);
-    } catch (e) {
-      return res.status(502).json({ error: "しょぼいカレンダーの応答がJSONとして解釈できませんでした" });
+    // 出てきた作品(TID)ぶんだけタイトル名をまとめて取得
+    const uniqueTids = Array.from(new Set(programs.map((p) => p.TID).filter(Boolean)));
+    const tidBatches = chunkArray(uniqueTids, 150);
+    const titleResults = await Promise.all(
+      tidBatches.map((batch) => fetchJson(`https://cal.syoboi.jp/json.php?Req=TitleMedium&TID=${batch.join(",")}`))
+    );
+    const titlesRaw = {};
+    for (const r of titleResults) {
+      const arr = toArray(r.Titles);
+      for (const t of arr) {
+        if (t && t.TID) titlesRaw[t.TID] = t;
+      }
+      // オブジェクト形式(TIDキー)の場合にも対応
+      if (r.Titles && !Array.isArray(r.Titles)) {
+        Object.assign(titlesRaw, r.Titles);
+      }
     }
-
-    const programs = toArray(raw.Programs);
-    const titlesRaw = raw.Titles || {};
 
     const grouped = new Map(); // TID -> { id, title, options: Map(ChID -> option) }
 
@@ -108,26 +168,19 @@ export default async function handler(req, res) {
       if (!tid || !chId || !stTime) continue;
 
       const titleInfo = titlesRaw[tid] || titlesRaw[String(tid)];
-      const title =
-        (titleInfo && (titleInfo.Title || titleInfo.ShortTitle)) || `不明の作品(TID:${tid})`;
+      const title = (titleInfo && (titleInfo.Title || titleInfo.ShortTitle)) || `不明の作品(TID:${tid})`;
 
       if (!grouped.has(tid)) {
         grouped.set(tid, { id: String(tid), title, options: new Map() });
       }
       const entry = grouped.get(tid);
 
-      // 同じ局(ChID)の放送は9日間の中で複数回ヒットしうるので、最初の1件だけを代表として採用
       if (!entry.options.has(chId)) {
-        const day = (stTime.getDay() + 6) % 7; // 0=月 ... 6=日 に変換
-        const time = `${pad(stTime.getHours())}:${pad(stTime.getMinutes())}`;
+        const { day, hour, minute } = getJstParts(stTime);
+        const time = `${hour}:${pad(minute)}`;
         const chName = p.ChName || "不明チャンネル";
-        entry.options.set(chId, {
-          id: `${tid}-${chId}`,
-          chName,
-          category: classify(chName),
-          day,
-          time,
-        });
+        const { category, provider } = classify(chName);
+        entry.options.set(chId, { id: `${tid}-${chId}`, chName, category, provider, day, time });
       }
     }
 
