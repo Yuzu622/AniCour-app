@@ -9,17 +9,30 @@ function pad(n) {
   return String(n).padStart(2, "0");
 }
 
-// しょぼいカレンダーの時刻表記(例: "20260807233000")をDateに変換
+// しょぼいカレンダーの時刻表記をDateに変換
+// 実際にはUnixタイムスタンプ(秒)で返ってくる(例: "1785835800")
 function parseSyoboiTime(raw) {
-  const digits = String(raw || "").replace(/\D/g, "");
-  if (digits.length < 12) return null;
-  const y = digits.slice(0, 4);
-  const mo = digits.slice(4, 6);
-  const d = digits.slice(6, 8);
-  const h = digits.slice(8, 10);
-  const mi = digits.slice(10, 12);
-  const date = new Date(`${y}-${mo}-${d}T${h}:${mi}:00+09:00`);
-  return isNaN(date.getTime()) ? null : date;
+  if (raw === null || raw === undefined || raw === "") return null;
+  const digits = String(raw).replace(/\D/g, "");
+
+  // 10桁 = Unixタイムスタンプ(秒)
+  if (/^\d{10}$/.test(digits)) {
+    const date = new Date(Number(digits) * 1000);
+    return isNaN(date.getTime()) ? null : date;
+  }
+
+  // 念のため YYYYMMDDHHmmss 形式(14桁)にも対応
+  if (digits.length >= 14) {
+    const y = digits.slice(0, 4);
+    const mo = digits.slice(4, 6);
+    const d = digits.slice(6, 8);
+    const h = digits.slice(8, 10);
+    const mi = digits.slice(10, 12);
+    const date = new Date(`${y}-${mo}-${d}T${h}:${mi}:00+09:00`);
+    return isNaN(date.getTime()) ? null : date;
+  }
+
+  return null;
 }
 
 function toArray(x) {
