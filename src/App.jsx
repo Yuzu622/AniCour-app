@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react";
-import { ChevronLeft, ChevronRight, Plus, X, Bell, BellOff, Check, Search, Sparkles } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, X, Bell, BellOff, Check, Search, Sparkles, ChevronDown } from "lucide-react";
 
 const FONT_IMPORT = `@import url('https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@700;800&family=Noto+Sans+JP:wght@400;500;700&display=swap');`;
 
@@ -13,7 +13,6 @@ const LINE = "#F1DCE9";
 const PINK = "#FF3D7F";
 const PINK_SOFT = "#FFE3EE";
 const BLUE = "#3DA9FF";
-const BLUE_SOFT = "#E1F1FF";
 
 const WEEKDAYS_JA = ["月", "火", "水", "木", "金", "土", "日"];
 const WEEKDAY_COLORS = ["#FF3D7F", "#FF9F1C", "#E8B800", "#17B978", "#22C3C3", "#3DA9FF", "#FF5A5F"];
@@ -27,19 +26,99 @@ const PLATFORMS = {
   prime: { label: "配信C", color: "#3DA9FF", soft: "#E1F1FF" },
 };
 
+// 1タイトルにつき複数の視聴方法(放送局/配信サービスごとに曜日・時間が異なる)を持たせる
 const SEASON_ANIME = [
-  { id: "a1", title: "回る回る、木曜日", platform: "chijou", day: 3, time: "24:30", ep: "全12話" },
-  { id: "a2", title: "海月と最終列車", platform: "netflix", day: 4, time: "26:00", ep: "全13話" },
-  { id: "a3", title: "ぱんぷきん・ラビリンス", platform: "danime", day: 2, time: "23:00", ep: "全12話" },
-  { id: "a4", title: "灯台守のうた", platform: "bs", day: 6, time: "24:00", ep: "全24話" },
-  { id: "a5", title: "鉄塔クロニクル", platform: "chijou", day: 1, time: "25:30", ep: "全12話" },
-  { id: "a6", title: "ハローグッバイ、また明日", platform: "prime", day: 3, time: "27:00", ep: "全12話" },
-  { id: "a7", title: "都市伝説カフェ", platform: "chijou", day: 5, time: "25:00", ep: "全12話" },
-  { id: "a8", title: "羊たちの夏休み", platform: "danime", day: 0, time: "23:30", ep: "全13話" },
-  { id: "a9", title: "電波少女のB面", platform: "netflix", day: 0, time: "24:00", ep: "全12話" },
-  { id: "a10", title: "夜行バスと恒星団", platform: "bs", day: 1, time: "23:00", ep: "全12話" },
-  { id: "a11", title: "コインランドリーの神様", platform: "prime", day: 2, time: "24:30", ep: "全12話" },
-  { id: "a12", title: "百年後のきみへ", platform: "chijou", day: 6, time: "23:30", ep: "全24話" },
+  {
+    id: "t1",
+    title: "回る回る、木曜日",
+    ep: "全12話",
+    options: [
+      { id: "t1-chijou", platform: "chijou", day: 3, time: "24:30" },
+      { id: "t1-netflix", platform: "netflix", day: 3, time: "25:00" },
+    ],
+  },
+  {
+    id: "t2",
+    title: "海月と最終列車",
+    ep: "全13話",
+    options: [{ id: "t2-netflix", platform: "netflix", day: 4, time: "26:00" }],
+  },
+  {
+    id: "t3",
+    title: "ぱんぷきん・ラビリンス",
+    ep: "全12話",
+    options: [
+      { id: "t3-danime", platform: "danime", day: 2, time: "23:00" },
+      { id: "t3-chijou", platform: "chijou", day: 2, time: "25:00" },
+    ],
+  },
+  {
+    id: "t4",
+    title: "灯台守のうた",
+    ep: "全24話",
+    options: [
+      { id: "t4-bs", platform: "bs", day: 6, time: "24:00" },
+      { id: "t4-prime", platform: "prime", day: 0, time: "12:00" },
+    ],
+  },
+  {
+    id: "t5",
+    title: "鉄塔クロニクル",
+    ep: "全12話",
+    options: [{ id: "t5-chijou", platform: "chijou", day: 1, time: "25:30" }],
+  },
+  {
+    id: "t6",
+    title: "ハローグッバイ、また明日",
+    ep: "全12話",
+    options: [{ id: "t6-prime", platform: "prime", day: 3, time: "27:00" }],
+  },
+  {
+    id: "t7",
+    title: "都市伝説カフェ",
+    ep: "全12話",
+    options: [
+      { id: "t7-chijou", platform: "chijou", day: 5, time: "25:00" },
+      { id: "t7-netflix", platform: "netflix", day: 5, time: "26:00" },
+      { id: "t7-danime", platform: "danime", day: 6, time: "24:00" },
+    ],
+  },
+  {
+    id: "t8",
+    title: "羊たちの夏休み",
+    ep: "全13話",
+    options: [{ id: "t8-danime", platform: "danime", day: 0, time: "23:30" }],
+  },
+  {
+    id: "t9",
+    title: "電波少女のB面",
+    ep: "全12話",
+    options: [
+      { id: "t9-netflix", platform: "netflix", day: 0, time: "24:00" },
+      { id: "t9-chijou", platform: "chijou", day: 1, time: "25:00" },
+    ],
+  },
+  {
+    id: "t10",
+    title: "夜行バスと恒星団",
+    ep: "全12話",
+    options: [{ id: "t10-bs", platform: "bs", day: 1, time: "23:00" }],
+  },
+  {
+    id: "t11",
+    title: "コインランドリーの神様",
+    ep: "全12話",
+    options: [{ id: "t11-prime", platform: "prime", day: 2, time: "24:30" }],
+  },
+  {
+    id: "t12",
+    title: "百年後のきみへ",
+    ep: "全24話",
+    options: [
+      { id: "t12-chijou", platform: "chijou", day: 5, time: "23:30" },
+      { id: "t12-bs", platform: "bs", day: 6, time: "24:00" },
+    ],
+  },
 ];
 
 const COUR_NAME = (month) => {
@@ -81,6 +160,183 @@ function timeToMinutes(t) {
   return h * 60 + m;
 }
 
+function findSelectedOption(anime, selected) {
+  return anime.options.find((o) => selected.includes(o.id));
+}
+
+function AnimeRow({ anime, selected, notify, isExpanded, onToggleExpand, onSelectOption, onToggleNotify }) {
+  const chosen = findSelectedOption(anime, selected);
+
+  return (
+    <div style={{ borderBottom: `1px solid ${LINE}` }}>
+      <div
+        onClick={onToggleExpand}
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 10,
+          padding: "12px 18px",
+          cursor: "pointer",
+          background: chosen ? PINK_SOFT : "transparent",
+        }}
+      >
+        <div
+          style={{
+            transform: isExpanded ? "rotate(180deg)" : "rotate(0deg)",
+            transition: "transform 0.15s",
+            color: INK_SOFT,
+            flexShrink: 0,
+          }}
+        >
+          <ChevronDown size={16} />
+        </div>
+
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: 13.5, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            {anime.title}
+          </div>
+          {chosen ? (
+            <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 3 }}>
+              <span
+                style={{
+                  fontSize: 10.5,
+                  fontWeight: 700,
+                  color: PLATFORMS[chosen.platform].color,
+                  background: PLATFORMS[chosen.platform].soft,
+                  padding: "2px 8px",
+                  borderRadius: 999,
+                }}
+              >
+                {PLATFORMS[chosen.platform].label}
+              </span>
+              <span style={{ fontSize: 11.5, color: INK_SOFT }}>
+                {WEEKDAYS_JA[chosen.day]}曜 {chosen.time} ・ {anime.ep}
+              </span>
+            </div>
+          ) : (
+            <div style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 3, flexWrap: "wrap" }}>
+              {anime.options.map((o) => (
+                <span
+                  key={o.id}
+                  style={{
+                    fontSize: 10,
+                    fontWeight: 700,
+                    color: PLATFORMS[o.platform].color,
+                    border: `1px solid ${PLATFORMS[o.platform].color}55`,
+                    padding: "1px 7px",
+                    borderRadius: 999,
+                  }}
+                >
+                  {PLATFORMS[o.platform].label}
+                </span>
+              ))}
+              <span style={{ fontSize: 11, color: INK_SOFT }}>・{anime.ep}</span>
+            </div>
+          )}
+        </div>
+
+        {chosen && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onToggleNotify(chosen.id);
+            }}
+            aria-label="通知設定"
+            style={{
+              width: 32,
+              height: 32,
+              flexShrink: 0,
+              border: "none",
+              borderRadius: "50%",
+              background: notify[chosen.id] ? "#FFF1D6" : "transparent",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              cursor: "pointer",
+              color: notify[chosen.id] ? "#E8B800" : "#C9BEDC",
+            }}
+          >
+            {notify[chosen.id] ? <Bell size={17} /> : <BellOff size={17} />}
+          </button>
+        )}
+      </div>
+
+      {isExpanded && (
+        <div style={{ padding: "0 18px 14px 44px", display: "flex", flexDirection: "column", gap: 6 }}>
+          <div style={{ fontSize: 11, color: INK_SOFT, marginBottom: 2 }}>視聴方法を選んでください</div>
+          {anime.options.map((o) => {
+            const p = PLATFORMS[o.platform];
+            const isChosen = chosen && chosen.id === o.id;
+            return (
+              <button
+                key={o.id}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onSelectOption(anime, o.id);
+                }}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 10,
+                  padding: "8px 12px",
+                  border: `2px solid ${isChosen ? p.color : LINE}`,
+                  background: isChosen ? p.soft : SURFACE,
+                  borderRadius: 12,
+                  cursor: "pointer",
+                  textAlign: "left",
+                  fontFamily: "inherit",
+                }}
+              >
+                <div
+                  style={{
+                    width: 18,
+                    height: 18,
+                    borderRadius: "50%",
+                    border: `2px solid ${isChosen ? p.color : "#D9CFE0"}`,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    flexShrink: 0,
+                  }}
+                >
+                  {isChosen && <div style={{ width: 9, height: 9, borderRadius: "50%", background: p.color }} />}
+                </div>
+                <span style={{ fontSize: 12, fontWeight: 700, color: p.color, background: p.soft, padding: "2px 8px", borderRadius: 999 }}>
+                  {p.label}
+                </span>
+                <span style={{ fontSize: 12.5, color: INK, fontWeight: 500 }}>
+                  {WEEKDAYS_JA[o.day]}曜 {o.time}〜
+                </span>
+              </button>
+            );
+          })}
+          {chosen && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onSelectOption(anime, chosen.id);
+              }}
+              style={{
+                alignSelf: "flex-start",
+                marginTop: 2,
+                border: "none",
+                background: "transparent",
+                color: INK_SOFT,
+                fontSize: 11.5,
+                textDecoration: "underline",
+                cursor: "pointer",
+                fontFamily: "inherit",
+              }}
+            >
+              選択を解除する
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function App() {
   const today = new Date();
   const [viewYear, setViewYear] = useState(today.getFullYear());
@@ -88,8 +344,9 @@ export default function App() {
   const [selected, setSelected] = useState([]);
   const [notify, setNotify] = useState({});
   const [modalOpen, setModalOpen] = useState(false);
-  const [dayFilter, setDayFilter] = useState(null);
+  const [platformFilter, setPlatformFilter] = useState(null);
   const [query, setQuery] = useState("");
+  const [expandedId, setExpandedId] = useState(null);
   const [saveError, setSaveError] = useState(false);
 
   useEffect(() => {
@@ -117,20 +374,25 @@ export default function App() {
     }
   }, []);
 
-  const toggleSelect = (id) => {
+  // ある作品について、選んだ視聴方法(optionId)をセットする。同じものをもう一度押すと解除。
+  const selectOption = (anime, optionId) => {
     setSelected((prev) => {
-      const next = prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id];
+      const otherIds = anime.options.map((o) => o.id);
+      const withoutThisAnime = prev.filter((id) => !otherIds.includes(id));
+      const alreadyChosen = prev.includes(optionId);
+      const next = alreadyChosen ? withoutThisAnime : [...withoutThisAnime, optionId];
+
       const nextNotify = { ...notify };
-      if (!prev.includes(id)) nextNotify[id] = true;
+      if (!alreadyChosen) nextNotify[optionId] = true;
       setNotify(nextNotify);
       persist(next, nextNotify);
       return next;
     });
   };
 
-  const toggleNotify = (id) => {
+  const toggleNotify = (optionId) => {
     setNotify((prev) => {
-      const next = { ...prev, [id]: !prev[id] };
+      const next = { ...prev, [optionId]: !prev[optionId] };
       persist(selected, next);
       return next;
     });
@@ -157,30 +419,35 @@ export default function App() {
 
   const weeks = useMemo(() => buildMonthGrid(viewYear, viewMonth), [viewYear, viewMonth]);
 
-  const selectedAnimeList = useMemo(
-    () => SEASON_ANIME.filter((a) => selected.includes(a.id)),
-    [selected]
-  );
+  // 選択済みの視聴方法をフラット化(タイトル情報を付けてカレンダー描画に使う)
+  const selectedEvents = useMemo(() => {
+    const list = [];
+    for (const anime of SEASON_ANIME) {
+      const chosen = findSelectedOption(anime, selected);
+      if (chosen) list.push({ ...chosen, title: anime.title, ep: anime.ep, animeId: anime.id });
+    }
+    return list;
+  }, [selected]);
 
   const eventsForDow = useMemo(() => {
     const map = {};
-    for (const a of selectedAnimeList) {
-      if (!map[a.day]) map[a.day] = [];
-      map[a.day].push(a);
+    for (const e of selectedEvents) {
+      if (!map[e.day]) map[e.day] = [];
+      map[e.day].push(e);
     }
     for (const key of Object.keys(map)) {
       map[key].sort((x, y) => timeToMinutes(x.time) - timeToMinutes(y.time));
     }
     return map;
-  }, [selectedAnimeList]);
+  }, [selectedEvents]);
 
   const filteredList = useMemo(() => {
     return SEASON_ANIME.filter((a) => {
-      const dayOk = dayFilter === null || a.day === dayFilter;
+      const platformOk = platformFilter === null || a.options.some((o) => o.platform === platformFilter);
       const qOk = query.trim() === "" || a.title.includes(query.trim());
-      return dayOk && qOk;
+      return platformOk && qOk;
     });
-  }, [dayFilter, query]);
+  }, [platformFilter, query]);
 
   const isToday = (cell) =>
     cell.inMonth &&
@@ -363,23 +630,8 @@ export default function App() {
                             overflow: "hidden",
                           }}
                         >
-                          <span
-                            style={{
-                              width: 6,
-                              height: 6,
-                              borderRadius: "50%",
-                              background: p.color,
-                              flexShrink: 0,
-                            }}
-                          />
-                          <span
-                            style={{
-                              fontVariantNumeric: "tabular-nums",
-                              color: p.color,
-                              fontWeight: 700,
-                              flexShrink: 0,
-                            }}
-                          >
+                          <span style={{ width: 6, height: 6, borderRadius: "50%", background: p.color, flexShrink: 0 }} />
+                          <span style={{ fontVariantNumeric: "tabular-nums", color: p.color, fontWeight: 700, flexShrink: 0 }}>
                             {e.time}
                           </span>
                           <span style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", color: INK }}>
@@ -418,7 +670,7 @@ export default function App() {
         </div>
 
         <div style={{ marginTop: 12, fontSize: 12, color: INK_SOFT }}>
-          視聴中の作品：{selectedAnimeList.length > 0 ? selectedAnimeList.map((a) => a.title).join("、") : "まだ選択されていません"}
+          視聴中の作品：{selectedEvents.length > 0 ? selectedEvents.map((e) => e.title).join("、") : "まだ選択されていません"}
         </div>
       </div>
 
@@ -463,7 +715,7 @@ export default function App() {
                   {viewYear}年 {COUR_NAME(viewMonth + 1)} ラインナップ
                 </div>
                 <div style={{ fontSize: 12, color: "#FFE3EE", marginTop: 2 }}>
-                  見ている作品にチェック、通知はベルをタップ
+                  作品をタップして視聴方法を選んでください
                 </div>
               </div>
               <button
@@ -505,119 +757,43 @@ export default function App() {
                 />
               </div>
               <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                <button onClick={() => setDayFilter(null)} style={dayFilter === null ? dayChipActive : dayChip}>
-                  全曜日
+                <button onClick={() => setPlatformFilter(null)} style={platformFilter === null ? dayChipActive : dayChip}>
+                  すべて
                 </button>
-                {WEEKDAYS_JA.map((w, i) => (
+                {Object.entries(PLATFORMS).map(([key, p]) => (
                   <button
-                    key={w}
-                    onClick={() => setDayFilter(i)}
+                    key={key}
+                    onClick={() => setPlatformFilter(key)}
                     style={
-                      dayFilter === i
-                        ? { ...dayChipActive, background: WEEKDAY_COLORS[i] }
-                        : { ...dayChip, color: WEEKDAY_COLORS[i], background: WEEKDAY_SOFT[i] }
+                      platformFilter === key
+                        ? { ...dayChipActive, background: p.color }
+                        : { ...dayChip, color: p.color, background: p.soft }
                     }
                   >
-                    {w}
+                    {p.label}
                   </button>
                 ))}
               </div>
             </div>
 
-            <div style={{ overflowY: "auto", padding: "6px 0" }}>
+            <div style={{ overflowY: "auto" }}>
               {filteredList.length === 0 && (
                 <div style={{ padding: 24, textAlign: "center", fontSize: 13, color: INK_SOFT }}>
                   該当する作品がありません
                 </div>
               )}
-              {filteredList.map((a) => {
-                const p = PLATFORMS[a.platform];
-                const isSel = selected.includes(a.id);
-                return (
-                  <div
-                    key={a.id}
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 10,
-                      padding: "10px 18px",
-                      borderBottom: `1px solid ${LINE}`,
-                      background: isSel ? PINK_SOFT : "transparent",
-                    }}
-                  >
-                    <button
-                      onClick={() => toggleSelect(a.id)}
-                      aria-label={isSel ? "選択解除" : "選択"}
-                      style={{
-                        width: 22,
-                        height: 22,
-                        flexShrink: 0,
-                        border: `2px solid ${isSel ? PINK : "#E3D4E0"}`,
-                        background: isSel ? PINK : "transparent",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        borderRadius: 7,
-                        cursor: "pointer",
-                      }}
-                    >
-                      {isSel && <Check size={13} color="#fff" strokeWidth={3} />}
-                    </button>
-
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div
-                        style={{
-                          fontSize: 13.5,
-                          fontWeight: 700,
-                          overflow: "hidden",
-                          textOverflow: "ellipsis",
-                          whiteSpace: "nowrap",
-                        }}
-                      >
-                        {a.title}
-                      </div>
-                      <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 3 }}>
-                        <span
-                          style={{
-                            fontSize: 10.5,
-                            fontWeight: 700,
-                            color: p.color,
-                            background: p.soft,
-                            padding: "2px 8px",
-                            borderRadius: 999,
-                          }}
-                        >
-                          {p.label}
-                        </span>
-                        <span style={{ fontSize: 11.5, color: INK_SOFT }}>
-                          {WEEKDAYS_JA[a.day]}曜 {a.time} ・ {a.ep}
-                        </span>
-                      </div>
-                    </div>
-
-                    <button
-                      onClick={() => isSel && toggleNotify(a.id)}
-                      disabled={!isSel}
-                      aria-label="通知設定"
-                      style={{
-                        width: 32,
-                        height: 32,
-                        flexShrink: 0,
-                        border: "none",
-                        borderRadius: "50%",
-                        background: isSel && notify[a.id] ? "#FFF1D6" : "transparent",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        cursor: isSel ? "pointer" : "default",
-                        color: isSel ? (notify[a.id] ? "#E8B800" : "#C9BEDC") : "#E9E1F0",
-                      }}
-                    >
-                      {isSel && notify[a.id] ? <Bell size={17} /> : <BellOff size={17} />}
-                    </button>
-                  </div>
-                );
-              })}
+              {filteredList.map((anime) => (
+                <AnimeRow
+                  key={anime.id}
+                  anime={anime}
+                  selected={selected}
+                  notify={notify}
+                  isExpanded={expandedId === anime.id}
+                  onToggleExpand={() => setExpandedId((prev) => (prev === anime.id ? null : anime.id))}
+                  onSelectOption={selectOption}
+                  onToggleNotify={toggleNotify}
+                />
+              ))}
             </div>
 
             <div style={{ padding: "10px 18px", borderTop: `1px solid ${LINE}`, fontSize: 11, color: INK_SOFT }}>
