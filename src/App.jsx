@@ -1,5 +1,18 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react";
-import { ChevronLeft, ChevronRight, Plus, X, Bell, BellOff, Check, Search, Sparkles, ChevronDown } from "lucide-react";
+import {
+  ChevronLeft,
+  ChevronRight,
+  Plus,
+  X,
+  Bell,
+  BellOff,
+  Check,
+  Search,
+  Sparkles,
+  ChevronDown,
+  RefreshCw,
+  AlertTriangle,
+} from "lucide-react";
 
 const FONT_IMPORT = `@import url('https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@700;800&family=Noto+Sans+JP:wght@400;500;700&display=swap');`;
 
@@ -18,108 +31,13 @@ const WEEKDAYS_JA = ["月", "火", "水", "木", "金", "土", "日"];
 const WEEKDAY_COLORS = ["#FF3D7F", "#FF9F1C", "#E8B800", "#17B978", "#22C3C3", "#3DA9FF", "#FF5A5F"];
 const WEEKDAY_SOFT = ["#FFE3EE", "#FFEBD6", "#FFF6D1", "#DFF7EC", "#DBF6F6", "#E1F1FF", "#FFE1E2"];
 
-const PLATFORMS = {
+// しょぼいカレンダーのチャンネル名から推測したカテゴリごとの見た目
+const CATEGORY_STYLE = {
   chijou: { label: "地上波", color: "#17B978", soft: "#DFF7EC" },
   bs: { label: "BS", color: "#FF9F1C", soft: "#FFEFD6" },
-  netflix: { label: "配信A", color: "#FF5A5F", soft: "#FFE1E2" },
-  danime: { label: "配信B", color: "#8B5CF6", soft: "#EEE7FE" },
-  prime: { label: "配信C", color: "#3DA9FF", soft: "#E1F1FF" },
+  cs: { label: "CS", color: "#22C3C3", soft: "#DBF6F6" },
+  streaming: { label: "配信", color: "#8B5CF6", soft: "#EEE7FE" },
 };
-
-// 1タイトルにつき複数の視聴方法(放送局/配信サービスごとに曜日・時間が異なる)を持たせる
-const SEASON_ANIME = [
-  {
-    id: "t1",
-    title: "回る回る、木曜日",
-    ep: "全12話",
-    options: [
-      { id: "t1-chijou", platform: "chijou", day: 3, time: "24:30" },
-      { id: "t1-netflix", platform: "netflix", day: 3, time: "25:00" },
-    ],
-  },
-  {
-    id: "t2",
-    title: "海月と最終列車",
-    ep: "全13話",
-    options: [{ id: "t2-netflix", platform: "netflix", day: 4, time: "26:00" }],
-  },
-  {
-    id: "t3",
-    title: "ぱんぷきん・ラビリンス",
-    ep: "全12話",
-    options: [
-      { id: "t3-danime", platform: "danime", day: 2, time: "23:00" },
-      { id: "t3-chijou", platform: "chijou", day: 2, time: "25:00" },
-    ],
-  },
-  {
-    id: "t4",
-    title: "灯台守のうた",
-    ep: "全24話",
-    options: [
-      { id: "t4-bs", platform: "bs", day: 6, time: "24:00" },
-      { id: "t4-prime", platform: "prime", day: 0, time: "12:00" },
-    ],
-  },
-  {
-    id: "t5",
-    title: "鉄塔クロニクル",
-    ep: "全12話",
-    options: [{ id: "t5-chijou", platform: "chijou", day: 1, time: "25:30" }],
-  },
-  {
-    id: "t6",
-    title: "ハローグッバイ、また明日",
-    ep: "全12話",
-    options: [{ id: "t6-prime", platform: "prime", day: 3, time: "27:00" }],
-  },
-  {
-    id: "t7",
-    title: "都市伝説カフェ",
-    ep: "全12話",
-    options: [
-      { id: "t7-chijou", platform: "chijou", day: 5, time: "25:00" },
-      { id: "t7-netflix", platform: "netflix", day: 5, time: "26:00" },
-      { id: "t7-danime", platform: "danime", day: 6, time: "24:00" },
-    ],
-  },
-  {
-    id: "t8",
-    title: "羊たちの夏休み",
-    ep: "全13話",
-    options: [{ id: "t8-danime", platform: "danime", day: 0, time: "23:30" }],
-  },
-  {
-    id: "t9",
-    title: "電波少女のB面",
-    ep: "全12話",
-    options: [
-      { id: "t9-netflix", platform: "netflix", day: 0, time: "24:00" },
-      { id: "t9-chijou", platform: "chijou", day: 1, time: "25:00" },
-    ],
-  },
-  {
-    id: "t10",
-    title: "夜行バスと恒星団",
-    ep: "全12話",
-    options: [{ id: "t10-bs", platform: "bs", day: 1, time: "23:00" }],
-  },
-  {
-    id: "t11",
-    title: "コインランドリーの神様",
-    ep: "全12話",
-    options: [{ id: "t11-prime", platform: "prime", day: 2, time: "24:30" }],
-  },
-  {
-    id: "t12",
-    title: "百年後のきみへ",
-    ep: "全24話",
-    options: [
-      { id: "t12-chijou", platform: "chijou", day: 5, time: "23:30" },
-      { id: "t12-bs", platform: "bs", day: 6, time: "24:00" },
-    ],
-  },
-];
 
 const COUR_NAME = (month) => {
   if ([1, 2, 3].includes(month)) return "冬クール";
@@ -196,21 +114,21 @@ function AnimeRow({ anime, selected, notify, isExpanded, onToggleExpand, onSelec
             {anime.title}
           </div>
           {chosen ? (
-            <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 3 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 3, flexWrap: "wrap" }}>
               <span
                 style={{
                   fontSize: 10.5,
                   fontWeight: 700,
-                  color: PLATFORMS[chosen.platform].color,
-                  background: PLATFORMS[chosen.platform].soft,
+                  color: CATEGORY_STYLE[chosen.category].color,
+                  background: CATEGORY_STYLE[chosen.category].soft,
                   padding: "2px 8px",
                   borderRadius: 999,
                 }}
               >
-                {PLATFORMS[chosen.platform].label}
+                {chosen.chName}
               </span>
               <span style={{ fontSize: 11.5, color: INK_SOFT }}>
-                {WEEKDAYS_JA[chosen.day]}曜 {chosen.time} ・ {anime.ep}
+                {WEEKDAYS_JA[chosen.day]}曜 {chosen.time}〜
               </span>
             </div>
           ) : (
@@ -221,16 +139,15 @@ function AnimeRow({ anime, selected, notify, isExpanded, onToggleExpand, onSelec
                   style={{
                     fontSize: 10,
                     fontWeight: 700,
-                    color: PLATFORMS[o.platform].color,
-                    border: `1px solid ${PLATFORMS[o.platform].color}55`,
+                    color: CATEGORY_STYLE[o.category].color,
+                    border: `1px solid ${CATEGORY_STYLE[o.category].color}55`,
                     padding: "1px 7px",
                     borderRadius: 999,
                   }}
                 >
-                  {PLATFORMS[o.platform].label}
+                  {o.chName}
                 </span>
               ))}
-              <span style={{ fontSize: 11, color: INK_SOFT }}>・{anime.ep}</span>
             </div>
           )}
         </div>
@@ -265,7 +182,7 @@ function AnimeRow({ anime, selected, notify, isExpanded, onToggleExpand, onSelec
         <div style={{ padding: "0 18px 14px 44px", display: "flex", flexDirection: "column", gap: 6 }}>
           <div style={{ fontSize: 11, color: INK_SOFT, marginBottom: 2 }}>視聴方法を選んでください</div>
           {anime.options.map((o) => {
-            const p = PLATFORMS[o.platform];
+            const cat = CATEGORY_STYLE[o.category];
             const isChosen = chosen && chosen.id === o.id;
             return (
               <button
@@ -279,8 +196,8 @@ function AnimeRow({ anime, selected, notify, isExpanded, onToggleExpand, onSelec
                   alignItems: "center",
                   gap: 10,
                   padding: "8px 12px",
-                  border: `2px solid ${isChosen ? p.color : LINE}`,
-                  background: isChosen ? p.soft : SURFACE,
+                  border: `2px solid ${isChosen ? cat.color : LINE}`,
+                  background: isChosen ? cat.soft : SURFACE,
                   borderRadius: 12,
                   cursor: "pointer",
                   textAlign: "left",
@@ -292,17 +209,17 @@ function AnimeRow({ anime, selected, notify, isExpanded, onToggleExpand, onSelec
                     width: 18,
                     height: 18,
                     borderRadius: "50%",
-                    border: `2px solid ${isChosen ? p.color : "#D9CFE0"}`,
+                    border: `2px solid ${isChosen ? cat.color : "#D9CFE0"}`,
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
                     flexShrink: 0,
                   }}
                 >
-                  {isChosen && <div style={{ width: 9, height: 9, borderRadius: "50%", background: p.color }} />}
+                  {isChosen && <div style={{ width: 9, height: 9, borderRadius: "50%", background: cat.color }} />}
                 </div>
-                <span style={{ fontSize: 12, fontWeight: 700, color: p.color, background: p.soft, padding: "2px 8px", borderRadius: 999 }}>
-                  {p.label}
+                <span style={{ fontSize: 12, fontWeight: 700, color: cat.color, background: cat.soft, padding: "2px 8px", borderRadius: 999 }}>
+                  {o.chName}
                 </span>
                 <span style={{ fontSize: 12.5, color: INK, fontWeight: 500 }}>
                   {WEEKDAYS_JA[o.day]}曜 {o.time}〜
@@ -348,6 +265,34 @@ export default function App() {
   const [query, setQuery] = useState("");
   const [expandedId, setExpandedId] = useState(null);
   const [saveError, setSaveError] = useState(false);
+
+  const [animeList, setAnimeList] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [fetchError, setFetchError] = useState(null);
+  const [updatedAt, setUpdatedAt] = useState(null);
+
+  const loadPrograms = useCallback(async () => {
+    setLoading(true);
+    setFetchError(null);
+    try {
+      const res = await fetch("/api/programs");
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error || `サーバーエラー (status ${res.status})`);
+      }
+      const data = await res.json();
+      setAnimeList(data.items || []);
+      setUpdatedAt(data.updatedAt || null);
+    } catch (e) {
+      setFetchError(e.message || "取得に失敗しました");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadPrograms();
+  }, [loadPrograms]);
 
   useEffect(() => {
     try {
@@ -422,12 +367,12 @@ export default function App() {
   // 選択済みの視聴方法をフラット化(タイトル情報を付けてカレンダー描画に使う)
   const selectedEvents = useMemo(() => {
     const list = [];
-    for (const anime of SEASON_ANIME) {
+    for (const anime of animeList) {
       const chosen = findSelectedOption(anime, selected);
-      if (chosen) list.push({ ...chosen, title: anime.title, ep: anime.ep, animeId: anime.id });
+      if (chosen) list.push({ ...chosen, title: anime.title, animeId: anime.id });
     }
     return list;
-  }, [selected]);
+  }, [animeList, selected]);
 
   const eventsForDow = useMemo(() => {
     const map = {};
@@ -442,12 +387,12 @@ export default function App() {
   }, [selectedEvents]);
 
   const filteredList = useMemo(() => {
-    return SEASON_ANIME.filter((a) => {
-      const platformOk = platformFilter === null || a.options.some((o) => o.platform === platformFilter);
+    return animeList.filter((a) => {
+      const platformOk = platformFilter === null || a.options.some((o) => o.category === platformFilter);
       const qOk = query.trim() === "" || a.title.includes(query.trim());
       return platformOk && qOk;
     });
-  }, [platformFilter, query]);
+  }, [animeList, platformFilter, query]);
 
   const isToday = (cell) =>
     cell.inMonth &&
@@ -552,11 +497,50 @@ export default function App() {
             border: `1px solid ${LINE}`,
             borderRadius: 12,
             padding: "8px 14px",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: 10,
+            flexWrap: "wrap",
           }}
         >
-          モックデータで動作しています。実運用版では放送・配信スケジュールAPIと連携し、通知はService Worker経由のプッシュ通知になります。
-          {saveError && <span style={{ color: PINK, marginLeft: 8, fontWeight: 700 }}>選択状態の保存に失敗しました。</span>}
+          <span>
+            しょぼいカレンダーから現在放送中のアニメ情報を取得しています(地上波・BS・CS中心、配信は登録があるものだけ)。
+            {updatedAt && !loading && (
+              <> 最終更新: {new Date(updatedAt).toLocaleString("ja-JP")}</>
+            )}
+            {saveError && <span style={{ color: PINK, marginLeft: 8, fontWeight: 700 }}>選択状態の保存に失敗しました。</span>}
+          </span>
+          <button
+            onClick={loadPrograms}
+            disabled={loading}
+            style={{ ...ghostBtn, padding: "4px 10px", display: "flex", alignItems: "center", gap: 4 }}
+          >
+            <RefreshCw size={12} style={{ animation: loading ? "spin 1s linear infinite" : "none" }} />
+            更新
+          </button>
+          <style>{`@keyframes spin { from { transform: rotate(0deg);} to { transform: rotate(360deg);} }`}</style>
         </div>
+
+        {fetchError && (
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              background: "#FFF1D6",
+              color: "#8A5A00",
+              border: "1px solid #F3D08A",
+              borderRadius: 12,
+              padding: "10px 14px",
+              fontSize: 12.5,
+              marginBottom: 16,
+            }}
+          >
+            <AlertTriangle size={16} style={{ flexShrink: 0 }} />
+            <span>データの取得に失敗しました({fetchError})。時間をおいて「更新」を押すか、エラー内容をそのまま貼って教えてください。</span>
+          </div>
+        )}
 
         <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 6 }}>
           {WEEKDAYS_JA.map((w, i) => (
@@ -613,25 +597,25 @@ export default function App() {
                   </div>
                   <div style={{ marginTop: 5, display: "flex", flexDirection: "column", gap: 4 }}>
                     {evts.map((e) => {
-                      const p = PLATFORMS[e.platform];
+                      const cat = CATEGORY_STYLE[e.category];
                       return (
                         <div
                           key={e.id}
-                          title={`${e.title} / ${p.label} ${e.time}`}
+                          title={`${e.title} / ${e.chName} ${e.time}`}
                           style={{
                             display: "flex",
                             alignItems: "center",
                             gap: 4,
                             fontSize: 10.5,
                             lineHeight: 1.3,
-                            background: p.soft,
+                            background: cat.soft,
                             padding: "3px 7px",
                             borderRadius: 999,
                             overflow: "hidden",
                           }}
                         >
-                          <span style={{ width: 6, height: 6, borderRadius: "50%", background: p.color, flexShrink: 0 }} />
-                          <span style={{ fontVariantNumeric: "tabular-nums", color: p.color, fontWeight: 700, flexShrink: 0 }}>
+                          <span style={{ width: 6, height: 6, borderRadius: "50%", background: cat.color, flexShrink: 0 }} />
+                          <span style={{ fontVariantNumeric: "tabular-nums", color: cat.color, fontWeight: 700, flexShrink: 0 }}>
                             {e.time}
                           </span>
                           <span style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", color: INK }}>
@@ -648,7 +632,7 @@ export default function App() {
         </div>
 
         <div style={{ marginTop: 20, display: "flex", flexWrap: "wrap", gap: 8 }}>
-          {Object.entries(PLATFORMS).map(([key, p]) => (
+          {Object.entries(CATEGORY_STYLE).map(([key, c]) => (
             <div
               key={key}
               style={{
@@ -657,14 +641,14 @@ export default function App() {
                 gap: 6,
                 fontSize: 12,
                 fontWeight: 700,
-                color: p.color,
-                background: p.soft,
+                color: c.color,
+                background: c.soft,
                 padding: "4px 12px",
                 borderRadius: 999,
               }}
             >
-              <span style={{ width: 8, height: 8, background: p.color, display: "inline-block", borderRadius: "50%" }} />
-              {p.label}
+              <span style={{ width: 8, height: 8, background: c.color, display: "inline-block", borderRadius: "50%" }} />
+              {c.label}
             </div>
           ))}
         </div>
@@ -712,7 +696,7 @@ export default function App() {
             >
               <div>
                 <div style={{ fontFamily: "'M PLUS Rounded 1c', sans-serif", fontWeight: 800, fontSize: 18, color: "#fff" }}>
-                  {viewYear}年 {COUR_NAME(viewMonth + 1)} ラインナップ
+                  現在放送中のラインナップ
                 </div>
                 <div style={{ fontSize: 12, color: "#FFE3EE", marginTop: 2 }}>
                   作品をタップして視聴方法を選んでください
@@ -760,40 +744,44 @@ export default function App() {
                 <button onClick={() => setPlatformFilter(null)} style={platformFilter === null ? dayChipActive : dayChip}>
                   すべて
                 </button>
-                {Object.entries(PLATFORMS).map(([key, p]) => (
+                {Object.entries(CATEGORY_STYLE).map(([key, c]) => (
                   <button
                     key={key}
                     onClick={() => setPlatformFilter(key)}
                     style={
                       platformFilter === key
-                        ? { ...dayChipActive, background: p.color }
-                        : { ...dayChip, color: p.color, background: p.soft }
+                        ? { ...dayChipActive, background: c.color }
+                        : { ...dayChip, color: c.color, background: c.soft }
                     }
                   >
-                    {p.label}
+                    {c.label}
                   </button>
                 ))}
               </div>
             </div>
 
             <div style={{ overflowY: "auto" }}>
-              {filteredList.length === 0 && (
+              {loading && (
+                <div style={{ padding: 24, textAlign: "center", fontSize: 13, color: INK_SOFT }}>読み込み中...</div>
+              )}
+              {!loading && filteredList.length === 0 && (
                 <div style={{ padding: 24, textAlign: "center", fontSize: 13, color: INK_SOFT }}>
                   該当する作品がありません
                 </div>
               )}
-              {filteredList.map((anime) => (
-                <AnimeRow
-                  key={anime.id}
-                  anime={anime}
-                  selected={selected}
-                  notify={notify}
-                  isExpanded={expandedId === anime.id}
-                  onToggleExpand={() => setExpandedId((prev) => (prev === anime.id ? null : anime.id))}
-                  onSelectOption={selectOption}
-                  onToggleNotify={toggleNotify}
-                />
-              ))}
+              {!loading &&
+                filteredList.map((anime) => (
+                  <AnimeRow
+                    key={anime.id}
+                    anime={anime}
+                    selected={selected}
+                    notify={notify}
+                    isExpanded={expandedId === anime.id}
+                    onToggleExpand={() => setExpandedId((prev) => (prev === anime.id ? null : anime.id))}
+                    onSelectOption={selectOption}
+                    onToggleNotify={toggleNotify}
+                  />
+                ))}
             </div>
 
             <div style={{ padding: "10px 18px", borderTop: `1px solid ${LINE}`, fontSize: 11, color: INK_SOFT }}>
