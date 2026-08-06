@@ -589,7 +589,7 @@ export default function App() {
           </div>
         )}
 
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 6 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(7, minmax(0, 1fr))", gap: 6 }}>
           {WEEKDAYS_JA.map((w, i) => (
             <div
               key={w}
@@ -617,12 +617,14 @@ export default function App() {
                   key={`${wi}-${ci}`}
                   style={{
                     minHeight: 106,
+                    minWidth: 0,
                     padding: "8px 7px 8px",
                     borderRadius: 12,
                     background: cell.inMonth ? SURFACE : "transparent",
                     border: cell.inMonth ? `1px solid ${LINE}` : "1px dashed transparent",
                     boxShadow: cell.inMonth ? "0 2px 0 rgba(43,33,64,0.05)" : "none",
                     opacity: cell.inMonth ? 1 : 0.35,
+                    overflow: "hidden",
                   }}
                 >
                   <div
@@ -665,7 +667,7 @@ export default function App() {
                           <span style={{ fontVariantNumeric: "tabular-nums", color: cat.color, fontWeight: 700, flexShrink: 0 }}>
                             {e.time}
                           </span>
-                          <span style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", color: INK }}>
+                          <span style={{ minWidth: 0, flex: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", color: INK }}>
                             {e.title}
                           </span>
                         </div>
