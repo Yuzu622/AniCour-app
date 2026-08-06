@@ -74,6 +74,7 @@ function classify(chName, chUrl) {
     [/lemino\.docomo/i, "Lemino"],
     [/dmm\.com/i, "DMM TV"],
     [/youtube\.com/i, "YouTube"],
+    [/tver\.jp/i, "TVer"],
   ];
   for (const [re, name] of urlServiceMap) {
     if (re.test(u)) return { category: "streaming", provider: name };
@@ -99,6 +100,7 @@ function classify(chName, chUrl) {
     [/DMM/i, "DMM TV"],
     [/アニメ*ライブ|アニメLIVE/i, "アニメLIVE"],
     [/YouTube/i, "YouTube"],
+    [/TVer/i, "TVer"],
   ];
   for (const [re, name] of streamMap) {
     if (re.test(s)) return { category: "streaming", provider: name };
@@ -127,14 +129,15 @@ async function fetchRaw(url) {
 export default async function handler(req, res) {
   try {
     const debug = req.query && (req.query.debug === "1" || req.query.debug === "true");
+    const fresh = req.query && (req.query.fresh === "1" || req.query.fresh === "true");
 
-    if (!debug && cache.data && Date.now() - cache.ts < CACHE_MS) {
+    if (!debug && !fresh && cache.data && Date.now() - cache.ts < CACHE_MS) {
       res.setHeader("Cache-Control", "public, max-age=300");
       return res.status(200).json(cache.data);
     }
 
     const start = nowJstStartParam();
-    const url = `https://cal.syoboi.jp/rss2.php?start=${start}&days=7&alt=json&usr=${USR_ID}&filter=0`;
+    const url = `https://cal.syoboi.jp/rss2.php?start=${start}&days=14&alt=json&usr=${USR_ID}&filter=0`;
     const rawText = await fetchRaw(url);
 
     let raw;
@@ -204,6 +207,8 @@ export default async function handler(req, res) {
             .filter((p) => String(p.Title || "").includes(q))
             .map((p) => ({ Title: p.Title, ChName: p.ChName, ChURL: p.ChURL, ChID: p.ChID, TID: p.TID, StTime: p.StTime }))
         : null;
+      const allTimes = programs.map((p) => parseEpochSeconds(p.StTime)).filter(Boolean).map((d) => d.getTime());
+      const latestCoveredDate = allTimes.length ? new Date(Math.max(...allTimes)).toISOString() : null;
       return res.status(200).json({
         requestUrl: url,
         rawIsArray: Array.isArray(raw),
@@ -212,6 +217,7 @@ export default async function handler(req, res) {
         skippedMissingIds,
         skippedBadTime,
         finalItemCount: items.length,
+        latestCoveredDate,
         sampleTitles: items.slice(0, 20).map((a) => a.title),
         allChannelNames,
         allChannelNameCount: allChannelNames.length,
