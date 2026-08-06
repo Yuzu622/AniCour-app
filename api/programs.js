@@ -176,6 +176,7 @@ export default async function handler(req, res) {
         skippedBadTime,
         finalItemCount: items.length,
         sampleTitles: items.slice(0, 20).map((a) => a.title),
+        sampleRawItems: programs.slice(0, 2),
       });
     }
 
