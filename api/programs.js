@@ -86,8 +86,17 @@ function classify(chName) {
 }
 
 async function fetchJson(url) {
-  const resp = await fetch(url, {
-    headers: { "User-Agent": UA, Accept: "application/json,text/plain,*/*" },
+  // 途中のキャッシュ(CDNなど)で古い/同じ結果が返り続けるのを避けるための対策
+  const bustedUrl = url + (url.includes("?") ? "&" : "?") + "_=" + Date.now() + Math.random().toString(36).slice(2);
+
+  const resp = await fetch(bustedUrl, {
+    headers: {
+      "User-Agent": UA,
+      Accept: "application/json,text/plain,*/*",
+      "Cache-Control": "no-cache",
+      Pragma: "no-cache",
+    },
+    cache: "no-store",
   });
   const text = await resp.text();
   if (!resp.ok) {
