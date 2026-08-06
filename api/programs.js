@@ -53,11 +53,36 @@ function toArray(x) {
   return [];
 }
 
-// チャンネル名からカテゴリ(地上波/BS/CS/配信)と、配信の場合はサービス名を推測
-function classify(chName) {
+// チャンネル名とチャンネルURLからカテゴリ(地上波/BS/CS/配信)と、配信の場合はサービス名を推測
+// ChURL(配信サービスの実際のドメイン)を優先して判定し、名前だけでの誤判定(MBSがBS判定されるなど)を防ぐ
+function classify(chName, chUrl) {
   const s = String(chName || "");
+  const u = String(chUrl || "");
+
+  // 1. URLドメインでの判定(最も確実。ABEMAのジャンル別チャンネルなど、
+  //    名前だけでは配信サービスと分からないものもここで拾える)
+  const urlServiceMap = [
+    [/abema\.tv/i, "ABEMA"],
+    [/netflix\.com/i, "Netflix"],
+    [/anime\.dmkt-sp\.jp|danime/i, "dアニメストア"],
+    [/amazon\.co\.jp|primevideo/i, "Prime Video"],
+    [/hulu\.jp/i, "Hulu"],
+    [/unext\.jp/i, "U-NEXT"],
+    [/disneyplus\.com/i, "Disney+"],
+    [/nicovideo\.jp|nico\.ms/i, "ニコニコ"],
+    [/fod\.fujitv/i, "FOD"],
+    [/lemino\.docomo/i, "Lemino"],
+    [/dmm\.com/i, "DMM TV"],
+    [/youtube\.com/i, "YouTube"],
+  ];
+  for (const [re, name] of urlServiceMap) {
+    if (re.test(u)) return { category: "streaming", provider: name };
+  }
+
+  // 2. チャンネル名での判定(BSは「MBS」のような地上波局名を誤検出しないよう、
+  //    名前が"BS"で始まるものだけに限定する)
+  if (/^BS/i.test(s) || /^NHK\s*BS/i.test(s)) return { category: "bs", provider: null };
   if (/AT-?X/i.test(s)) return { category: "cs", provider: null };
-  if (/BS/i.test(s)) return { category: "bs", provider: null };
   if (/\bCS\b/i.test(s)) return { category: "cs", provider: null };
 
   const streamMap = [
@@ -161,7 +186,7 @@ export default async function handler(req, res) {
         const { day, hour, minute } = getJstParts(stTime);
         const time = `${hour}:${pad(minute)}`;
         const chName = p.ChName || "不明チャンネル";
-        const { category, provider } = classify(chName);
+        const { category, provider } = classify(chName, p.ChURL);
         entry.options.set(chId, { id: `${tid}-${chId}`, chName, category, provider, day, time });
       }
     }
@@ -177,7 +202,7 @@ export default async function handler(req, res) {
       const matched = q
         ? programs
             .filter((p) => String(p.Title || "").includes(q))
-            .map((p) => ({ Title: p.Title, ChName: p.ChName, ChID: p.ChID, TID: p.TID, StTime: p.StTime }))
+            .map((p) => ({ Title: p.Title, ChName: p.ChName, ChURL: p.ChURL, ChID: p.ChID, TID: p.TID, StTime: p.StTime }))
         : null;
       return res.status(200).json({
         requestUrl: url,
