@@ -12,6 +12,8 @@ import {
   ChevronDown,
   RefreshCw,
   AlertTriangle,
+  Palette,
+  RotateCcw,
 } from "lucide-react";
 
 const FONT_IMPORT = `@import url('https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@700;800&family=Noto+Sans+JP:wght@400;500;700&display=swap');`;
@@ -33,27 +35,30 @@ const WEEKDAY_SOFT = ["#FFE3EE", "#FFEBD6", "#FFF6D1", "#DFF7EC", "#DBF6F6", "#E
 
 // しょぼいカレンダーのチャンネル名から推測したカテゴリごとの見た目
 const CATEGORY_STYLE = {
-  chijou: { label: "地上波", color: "#17B978", soft: "#DFF7EC" },
-  bs: { label: "BS", color: "#FF9F1C", soft: "#FFEFD6" },
-  cs: { label: "CS", color: "#22C3C3", soft: "#DBF6F6" },
+  chijou: { label: "地上波", color: "#17A673", soft: "#DFF7EC" },
+  bs: { label: "BS", color: "#F2994A", soft: "#FFEFD6" },
+  cs: { label: "CS", color: "#2FB8C6", soft: "#DBF6F6" },
 };
 
 // 配信サービスごとの色(サーバー側classify()のprovider名と対応)
+// 地上波の緑と被らないよう、暖色〜寒色をなるべく散らして割り当てている
 const PROVIDER_STYLE = {
-  Netflix: { color: "#E5062C", soft: "#FCE0E4" },
-  dアニメストア: { color: "#8B5CF6", soft: "#EEE7FE" },
-  "Prime Video": { color: "#00A8E1", soft: "#DFF3FC" },
-  ABEMA: { color: "#00CC66", soft: "#DFFAEA" },
-  "DMM TV": { color: "#FF6B00", soft: "#FFE9D6" },
-  Hulu: { color: "#3DBB3D", soft: "#E1F7E1" },
-  "U-NEXT": { color: "#2B2140", soft: "#E7E4EC" },
-  "Disney+": { color: "#113CCF", soft: "#E1E7FB" },
-  ニコニコ: { color: "#FF9900", soft: "#FFF1DB" },
-  FOD: { color: "#E4007F", soft: "#FCE1EF" },
-  Lemino: { color: "#7B2FF7", soft: "#EEE3FE" },
-  アニメLIVE: { color: "#00BFA5", soft: "#DFFAF6" },
+  Netflix: { color: "#E5344A", soft: "#FCE0E4" },
+  dアニメストア: { color: "#9B59D0", soft: "#EEE7FE" },
+  "Prime Video": { color: "#2D7DD2", soft: "#DFF3FC" },
+  ABEMA: { color: "#E0479E", soft: "#FCE3F1" },
+  "DMM TV": { color: "#C77D1E", soft: "#F5E7D2" },
+  Hulu: { color: "#5C7A99", soft: "#E4EBF0" },
+  "U-NEXT": { color: "#33383D", soft: "#E7E7E9" },
+  "Disney+": { color: "#1450A3", soft: "#DDE9F8" },
+  ニコニコ: { color: "#E67E22", soft: "#FBE8D6" },
+  FOD: { color: "#D6336C", soft: "#FBE0EA" },
+  Lemino: { color: "#6C5CE7", soft: "#E7E4FC" },
+  アニメLIVE: { color: "#16A085", soft: "#DBF3EE" },
+  YouTube: { color: "#CC3B22", soft: "#FBE1DA" },
 };
 const FALLBACK_STYLE = { color: "#8577A3", soft: "#EFEBF5" };
+const COLOR_OVERRIDES_KEY = "anime-tracker-colors";
 
 // 視聴オプション1件ぶんの色・ラベル・絞り込み用キーをまとめて解決する
 function styleFor(o) {
@@ -66,6 +71,18 @@ function labelFor(o) {
 }
 function groupKeyFor(o) {
   return o.category === "streaming" ? o.provider || "streaming_other" : o.category;
+}
+// 6桁hexカラーの末尾に透過度を足して、淡い背景色を機械的に作る
+function withAlpha(hex, alphaHex) {
+  if (!hex || hex[0] !== "#" || hex.length !== 7) return hex;
+  return hex + alphaHex;
+}
+// カスタムカラー(overrides)があればそちらを優先して色を解決する
+function resolveStyle(o, overrides) {
+  const key = groupKeyFor(o);
+  const custom = overrides && overrides[key];
+  if (custom) return { color: custom, soft: withAlpha(custom, "26") };
+  return styleFor(o);
 }
 
 const COUR_NAME = (month) => {
@@ -111,7 +128,7 @@ function findSelectedOption(anime, selected) {
   return anime.options.find((o) => selected.includes(o.id));
 }
 
-function AnimeRow({ anime, selected, notify, isExpanded, onToggleExpand, onSelectOption, onToggleNotify }) {
+function AnimeRow({ anime, selected, notify, isExpanded, onToggleExpand, onSelectOption, onToggleNotify, colorOverrides }) {
   const chosen = findSelectedOption(anime, selected);
 
   return (
@@ -148,8 +165,8 @@ function AnimeRow({ anime, selected, notify, isExpanded, onToggleExpand, onSelec
                 style={{
                   fontSize: 10.5,
                   fontWeight: 700,
-                  color: styleFor(chosen).color,
-                  background: styleFor(chosen).soft,
+                  color: resolveStyle(chosen, colorOverrides).color,
+                  background: resolveStyle(chosen, colorOverrides).soft,
                   padding: "2px 8px",
                   borderRadius: 999,
                 }}
@@ -168,8 +185,8 @@ function AnimeRow({ anime, selected, notify, isExpanded, onToggleExpand, onSelec
                   style={{
                     fontSize: 10,
                     fontWeight: 700,
-                    color: styleFor(o).color,
-                    border: `1px solid ${styleFor(o).color}55`,
+                    color: resolveStyle(o, colorOverrides).color,
+                    border: `1px solid ${resolveStyle(o, colorOverrides).color}55`,
                     padding: "1px 7px",
                     borderRadius: 999,
                   }}
@@ -211,7 +228,7 @@ function AnimeRow({ anime, selected, notify, isExpanded, onToggleExpand, onSelec
         <div style={{ padding: "0 18px 14px 44px", display: "flex", flexDirection: "column", gap: 6 }}>
           <div style={{ fontSize: 11, color: INK_SOFT, marginBottom: 2 }}>視聴方法を選んでください</div>
           {anime.options.map((o) => {
-            const cat = styleFor(o);
+            const cat = resolveStyle(o, colorOverrides);
             const isChosen = chosen && chosen.id === o.id;
             return (
               <button
@@ -295,6 +312,42 @@ export default function App() {
   const [expandedId, setExpandedId] = useState(null);
   const [saveError, setSaveError] = useState(false);
   const [detailAnimeId, setDetailAnimeId] = useState(null);
+  const [colorOverrides, setColorOverrides] = useState({});
+  const [colorPanelOpen, setColorPanelOpen] = useState(false);
+
+  useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem(COLOR_OVERRIDES_KEY);
+      if (raw) setColorOverrides(JSON.parse(raw));
+    } catch (e) {
+      // 初回はキーが存在しないため何もしない
+    }
+  }, []);
+
+  const setOneColor = (key, hex) => {
+    setColorOverrides((prev) => {
+      const next = { ...prev, [key]: hex };
+      try {
+        window.localStorage.setItem(COLOR_OVERRIDES_KEY, JSON.stringify(next));
+      } catch (e) {
+        // 保存に失敗しても表示上は反映させる
+      }
+      return next;
+    });
+  };
+
+  const resetOneColor = (key) => {
+    setColorOverrides((prev) => {
+      const next = { ...prev };
+      delete next[key];
+      try {
+        window.localStorage.setItem(COLOR_OVERRIDES_KEY, JSON.stringify(next));
+      } catch (e) {
+        // noop
+      }
+      return next;
+    });
+  };
 
   const [animeList, setAnimeList] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -430,7 +483,7 @@ export default function App() {
     for (const a of animeList) {
       for (const o of a.options) {
         const key = groupKeyFor(o);
-        if (!map.has(key)) map.set(key, { key, label: labelFor(o), style: styleFor(o) });
+        if (!map.has(key)) map.set(key, { key, label: labelFor(o), style: resolveStyle(o, colorOverrides) });
       }
     }
     const priority = ["chijou", "bs", "cs"];
@@ -440,7 +493,7 @@ export default function App() {
       if (ai !== -1 || bi !== -1) return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi);
       return a.label.localeCompare(b.label, "ja");
     });
-  }, [animeList]);
+  }, [animeList, colorOverrides]);
 
   const detailAnime = useMemo(
     () => animeList.find((a) => a.id === detailAnimeId) || null,
@@ -652,7 +705,7 @@ export default function App() {
                   </div>
                   <div style={{ marginTop: 5, display: "flex", flexDirection: "column", gap: 4 }}>
                     {evts.map((e) => {
-                      const cat = styleFor(e);
+                      const cat = resolveStyle(e, colorOverrides);
                       return (
                         <div
                           key={e.id}
@@ -688,7 +741,7 @@ export default function App() {
           )}
         </div>
 
-        <div style={{ marginTop: 20, display: "flex", flexWrap: "wrap", gap: 8 }}>
+        <div style={{ marginTop: 20, display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8 }}>
           {availableGroups.map((g) => (
             <div
               key={g.key}
@@ -708,6 +761,28 @@ export default function App() {
               {g.label}
             </div>
           ))}
+          {availableGroups.length > 0 && (
+            <button
+              onClick={() => setColorPanelOpen(true)}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 4,
+                fontSize: 11.5,
+                fontWeight: 700,
+                color: INK_SOFT,
+                background: "transparent",
+                border: `1px dashed ${LINE}`,
+                padding: "4px 10px",
+                borderRadius: 999,
+                cursor: "pointer",
+                fontFamily: "inherit",
+              }}
+            >
+              <Palette size={12} />
+              色を編集
+            </button>
+          )}
         </div>
 
         <div style={{ marginTop: 12, fontSize: 12, color: INK_SOFT }}>
@@ -837,6 +912,7 @@ export default function App() {
                     onToggleExpand={() => setExpandedId((prev) => (prev === anime.id ? null : anime.id))}
                     onSelectOption={selectOption}
                     onToggleNotify={toggleNotify}
+                    colorOverrides={colorOverrides}
                   />
                 ))}
             </div>
@@ -914,7 +990,134 @@ export default function App() {
                 onToggleExpand={() => {}}
                 onSelectOption={selectOption}
                 onToggleNotify={toggleNotify}
+                colorOverrides={colorOverrides}
               />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {colorPanelOpen && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(43,33,64,0.45)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 70,
+            padding: 20,
+          }}
+          onClick={() => setColorPanelOpen(false)}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              background: SURFACE,
+              width: "100%",
+              maxWidth: 420,
+              maxHeight: "80vh",
+              display: "flex",
+              flexDirection: "column",
+              borderRadius: 20,
+              overflow: "hidden",
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                padding: "16px 18px",
+                background: BLUE,
+              }}
+            >
+              <div>
+                <div style={{ fontFamily: "'M PLUS Rounded 1c', sans-serif", fontWeight: 800, fontSize: 17, color: "#fff" }}>
+                  色を編集
+                </div>
+                <div style={{ fontSize: 12, color: "#E4F3FF", marginTop: 2 }}>
+                  局・配信サービスごとに好きな色に変更できます
+                </div>
+              </div>
+              <button
+                onClick={() => setColorPanelOpen(false)}
+                style={{ ...iconBtn, border: "none", background: "rgba(255,255,255,0.25)", color: "#fff" }}
+                aria-label="閉じる"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div style={{ overflowY: "auto", padding: "10px 18px" }}>
+              {availableGroups.map((g) => (
+                <div
+                  key={g.key}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 10,
+                    padding: "10px 0",
+                    borderBottom: `1px solid ${LINE}`,
+                  }}
+                >
+                  <label
+                    style={{
+                      width: 34,
+                      height: 34,
+                      borderRadius: "50%",
+                      flexShrink: 0,
+                      cursor: "pointer",
+                      border: `2px solid ${LINE}`,
+                      overflow: "hidden",
+                      position: "relative",
+                      background: g.style.color,
+                    }}
+                  >
+                    <input
+                      type="color"
+                      value={g.style.color}
+                      onChange={(ev) => setOneColor(g.key, ev.target.value)}
+                      style={{
+                        position: "absolute",
+                        inset: 0,
+                        width: "100%",
+                        height: "100%",
+                        opacity: 0,
+                        cursor: "pointer",
+                      }}
+                    />
+                  </label>
+                  <div style={{ flex: 1, fontSize: 13.5, fontWeight: 700, color: INK }}>{g.label}</div>
+                  {colorOverrides[g.key] && (
+                    <button
+                      onClick={() => resetOneColor(g.key)}
+                      aria-label="デフォルトに戻す"
+                      style={{
+                        border: "none",
+                        background: "transparent",
+                        color: INK_SOFT,
+                        cursor: "pointer",
+                        display: "flex",
+                        alignItems: "center",
+                        padding: 6,
+                      }}
+                    >
+                      <RotateCcw size={15} />
+                    </button>
+                  )}
+                </div>
+              ))}
+              {availableGroups.length === 0 && (
+                <div style={{ padding: 24, textAlign: "center", fontSize: 13, color: INK_SOFT }}>
+                  まだ表示できる項目がありません
+                </div>
+              )}
+            </div>
+
+            <div style={{ padding: "10px 18px", borderTop: `1px solid ${LINE}`, fontSize: 11, color: INK_SOFT }}>
+              丸いアイコンをタップすると色を選べます。変更はこの端末に保存されます。
             </div>
           </div>
         </div>
@@ -956,9 +1159,12 @@ const dayChip = {
   cursor: "pointer",
   fontFamily: "inherit",
   borderRadius: 999,
+  background: "#F1EEF5",
+  color: "#5B5470",
 };
 
 const dayChipActive = {
   ...dayChip,
   color: "#fff",
+  background: "#2B2140",
 };
