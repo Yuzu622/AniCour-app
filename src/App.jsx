@@ -294,6 +294,7 @@ export default function App() {
   const [query, setQuery] = useState("");
   const [expandedId, setExpandedId] = useState(null);
   const [saveError, setSaveError] = useState(false);
+  const [detailAnimeId, setDetailAnimeId] = useState(null);
 
   const [animeList, setAnimeList] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -440,6 +441,11 @@ export default function App() {
       return a.label.localeCompare(b.label, "ja");
     });
   }, [animeList]);
+
+  const detailAnime = useMemo(
+    () => animeList.find((a) => a.id === detailAnimeId) || null,
+    [animeList, detailAnimeId]
+  );
 
   const isToday = (cell) =>
     cell.inMonth &&
@@ -650,6 +656,7 @@ export default function App() {
                       return (
                         <div
                           key={e.id}
+                          onClick={() => setDetailAnimeId(e.animeId)}
                           title={`${e.title} / ${e.chName} ${e.time}`}
                           style={{
                             display: "flex",
@@ -661,6 +668,7 @@ export default function App() {
                             padding: "3px 7px",
                             borderRadius: 999,
                             overflow: "hidden",
+                            cursor: "pointer",
                           }}
                         >
                           <span style={{ width: 6, height: 6, borderRadius: "50%", background: cat.color, flexShrink: 0 }} />
@@ -835,6 +843,78 @@ export default function App() {
 
             <div style={{ padding: "10px 18px", borderTop: `1px solid ${LINE}`, fontSize: 11, color: INK_SOFT }}>
               通知トグルは表示のみのデモです。実運用ではブラウザのプッシュ通知権限が別途必要です。
+            </div>
+          </div>
+        </div>
+      )}
+
+      {detailAnime && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(43,33,64,0.45)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 60,
+            padding: 20,
+          }}
+          onClick={() => setDetailAnimeId(null)}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              background: SURFACE,
+              width: "100%",
+              maxWidth: 440,
+              maxHeight: "80vh",
+              display: "flex",
+              flexDirection: "column",
+              borderRadius: 20,
+              overflow: "hidden",
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                alignItems: "flex-start",
+                justifyContent: "space-between",
+                padding: "16px 18px",
+                background: PINK,
+                gap: 10,
+              }}
+            >
+              <div
+                style={{
+                  fontFamily: "'M PLUS Rounded 1c', sans-serif",
+                  fontWeight: 800,
+                  fontSize: 17,
+                  color: "#fff",
+                  lineHeight: 1.4,
+                }}
+              >
+                {detailAnime.title}
+              </div>
+              <button
+                onClick={() => setDetailAnimeId(null)}
+                style={{ ...iconBtn, border: "none", background: "rgba(255,255,255,0.25)", color: "#fff", flexShrink: 0 }}
+                aria-label="閉じる"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div style={{ overflowY: "auto" }}>
+              <AnimeRow
+                anime={detailAnime}
+                selected={selected}
+                notify={notify}
+                isExpanded={true}
+                onToggleExpand={() => {}}
+                onSelectOption={selectOption}
+                onToggleNotify={toggleNotify}
+              />
             </div>
           </div>
         </div>
