@@ -123,14 +123,7 @@ export default async function handler(req, res) {
     const chunkResults = await Promise.all(
       starts.map((s) => fetchJson(`https://cal.syoboi.jp/json.php?Req=ProgramByDate&Start=${s}&Days=3`))
     );
-
-    if (debug) {
-      return res.status(200).json({
-        starts,
-        chunkProgramCounts: chunkResults.map((r) => toArray(r.Programs).length),
-        sample: toArray(chunkResults[0].Programs).slice(0, 3),
-      });
-    }
+    const chunkProgramCounts = chunkResults.map((r) => toArray(r.Programs).length);
 
     // PIDで重複排除しつつ全プログラムをまとめる
     const programMap = new Map();
@@ -159,13 +152,23 @@ export default async function handler(req, res) {
       }
     }
 
+    let skippedMissingIds = 0;
+    let skippedBadTime = 0;
+
     const grouped = new Map(); // TID -> { id, title, options: Map(ChID -> option) }
 
     for (const p of programs) {
       const tid = p.TID;
       const chId = p.ChID;
+      if (!tid || !chId) {
+        skippedMissingIds++;
+        continue;
+      }
       const stTime = parseSyoboiTime(p.StTime);
-      if (!tid || !chId || !stTime) continue;
+      if (!stTime) {
+        skippedBadTime++;
+        continue;
+      }
 
       const titleInfo = titlesRaw[tid] || titlesRaw[String(tid)];
       const title = (titleInfo && (titleInfo.Title || titleInfo.ShortTitle)) || `不明の作品(TID:${tid})`;
@@ -188,6 +191,21 @@ export default async function handler(req, res) {
       .map((a) => ({ id: a.id, title: a.title, options: Array.from(a.options.values()) }))
       .filter((a) => a.options.length > 0)
       .sort((a, b) => a.title.localeCompare(b.title, "ja"));
+
+    if (debug) {
+      return res.status(200).json({
+        starts,
+        chunkProgramCounts,
+        totalRawPrograms: programs.length,
+        uniqueTidCount: uniqueTids.length,
+        titleBatchCount: tidBatches.length,
+        titlesFetchedCount: Object.keys(titlesRaw).length,
+        skippedMissingIds,
+        skippedBadTime,
+        finalItemCount: items.length,
+        sampleTitles: items.slice(0, 15).map((a) => a.title),
+      });
+    }
 
     const payload = { updatedAt: new Date().toISOString(), items };
     cache = { data: payload, ts: Date.now() };
