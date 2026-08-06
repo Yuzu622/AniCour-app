@@ -167,6 +167,13 @@ export default async function handler(req, res) {
       .sort((a, b) => a.title.localeCompare(b.title, "ja"));
 
     if (debug) {
+      const q = req.query && req.query.q;
+      const allChannelNames = Array.from(new Set(programs.map((p) => p.ChName).filter(Boolean))).sort();
+      const matched = q
+        ? programs
+            .filter((p) => String(p.Title || "").includes(q))
+            .map((p) => ({ Title: p.Title, ChName: p.ChName, ChID: p.ChID, TID: p.TID, StTime: p.StTime }))
+        : null;
       return res.status(200).json({
         requestUrl: url,
         rawIsArray: Array.isArray(raw),
@@ -176,7 +183,9 @@ export default async function handler(req, res) {
         skippedBadTime,
         finalItemCount: items.length,
         sampleTitles: items.slice(0, 20).map((a) => a.title),
-        sampleRawItems: programs.slice(0, 2),
+        allChannelNames,
+        allChannelNameCount: allChannelNames.length,
+        matchedForQuery: matched,
       });
     }
 
