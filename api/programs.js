@@ -73,6 +73,7 @@ function classify(chName) {
     [/Lemino/i, "Lemino"],
     [/DMM/i, "DMM TV"],
     [/アニメ*ライブ|アニメLIVE/i, "アニメLIVE"],
+    [/YouTube/i, "YouTube"],
   ];
   for (const [re, name] of streamMap) {
     if (re.test(s)) return { category: "streaming", provider: name };
