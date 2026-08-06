@@ -56,6 +56,7 @@ const PROVIDER_STYLE = {
   Lemino: { color: "#6C5CE7", soft: "#E7E4FC" },
   アニメLIVE: { color: "#16A085", soft: "#DBF3EE" },
   YouTube: { color: "#CC3B22", soft: "#FBE1DA" },
+  TVer: { color: "#B8860B", soft: "#FCF3D6" },
 };
 const FALLBACK_STYLE = { color: "#8577A3", soft: "#EFEBF5" };
 const COLOR_OVERRIDES_KEY = "anime-tracker-colors";
