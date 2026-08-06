@@ -8,6 +8,10 @@
 
 const UA = "AnimeCourApp/0.1 (personal project; individual use)";
 
+// しょぼいカレンダーのユーザーID。このユーザーが「表示する」設定にしている
+// チャンネル(ローカル局を含む)を反映してデータを取得するために使う。
+const USR_ID = "pScwFmb5Ya";
+
 let cache = { data: null, ts: 0 };
 const CACHE_MS = 10 * 60 * 1000;
 
@@ -104,7 +108,7 @@ export default async function handler(req, res) {
     }
 
     const start = nowJstStartParam();
-    const url = `https://cal.syoboi.jp/rss2.php?start=${start}&days=7&alt=json`;
+    const url = `https://cal.syoboi.jp/rss2.php?start=${start}&days=7&alt=json&usr=${USR_ID}&filter=0`;
     const rawText = await fetchRaw(url);
 
     let raw;
