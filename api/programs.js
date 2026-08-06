@@ -116,14 +116,33 @@ export default async function handler(req, res) {
     }
 
     // 9日分を3日ずつ3回に分けて取得(1回のリクエストが大きくなりすぎて
-    // しょぼいカレンダー側で切られてしまうのを避けるため)
+    // しょぼいカレンダー側で切られてしまうのを避けるため)。
+    // 同時に投げると弾かれる可能性があるため、1つずつ順番にリクエストする。
     const start0 = todayJstStr();
     const starts = [start0, addDaysStr(start0, 3), addDaysStr(start0, 6)];
 
-    const chunkResults = await Promise.all(
-      starts.map((s) => fetchJson(`https://cal.syoboi.jp/json.php?Req=ProgramByDate&Start=${s}&Days=3`))
-    );
+    const chunkResults = [];
+    for (const s of starts) {
+      const r = await fetchJson(`https://cal.syoboi.jp/json.php?Req=ProgramByDate&Start=${s}&Days=3`);
+      chunkResults.push(r);
+      await new Promise((resolve) => setTimeout(resolve, 400));
+    }
     const chunkProgramCounts = chunkResults.map((r) => toArray(r.Programs).length);
+
+    // 各回で実際に取れた日付の範囲(本当に異なるデータが返ってきているかの確認用)
+    const chunkDateRanges = chunkResults.map((r) => {
+      const times = toArray(r.Programs)
+        .map((p) => parseSyoboiTime(p.StTime))
+        .filter(Boolean)
+        .map((d) => d.getTime());
+      if (times.length === 0) return null;
+      const { day: minDay, hour: minHour, minute: minMin } = getJstParts(new Date(Math.min(...times)));
+      const { day: maxDay, hour: maxHour, minute: maxMin } = getJstParts(new Date(Math.max(...times)));
+      return {
+        min: `${["月","火","水","木","金","土","日"][minDay]} ${minHour}:${pad(minMin)}`,
+        max: `${["月","火","水","木","金","土","日"][maxDay]} ${maxHour}:${pad(maxMin)}`,
+      };
+    });
 
     // PIDで重複排除しつつ全プログラムをまとめる
     const programMap = new Map();
@@ -196,6 +215,7 @@ export default async function handler(req, res) {
       return res.status(200).json({
         starts,
         chunkProgramCounts,
+        chunkDateRanges,
         totalRawPrograms: programs.length,
         uniqueTidCount: uniqueTids.length,
         titleBatchCount: tidBatches.length,
