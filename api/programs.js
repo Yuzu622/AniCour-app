@@ -139,7 +139,7 @@ export default async function handler(req, res) {
         skippedMissingIds++;
         continue;
       }
-      const stTime = parseEpochSeconds(p.StTimeU);
+      const stTime = parseEpochSeconds(p.StTime);
       if (!stTime) {
         skippedBadTime++;
         continue;
