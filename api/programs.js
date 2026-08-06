@@ -117,11 +117,14 @@ export default async function handler(req, res) {
       });
     }
 
-    // レスポンスが配列そのもの/ {items:[...]} / {Programs:[...]} など、
-    // どの形で来ても拾えるようにする
-    let programs = toArray(raw);
-    if (programs.length === 0 && raw && typeof raw === "object") {
-      programs = toArray(raw.items || raw.Programs || raw.programs);
+    // レスポンスは { items: [...], chInfo: {...} } という形で返ってくる
+    let programs = [];
+    if (Array.isArray(raw)) {
+      programs = raw;
+    } else if (raw && Array.isArray(raw.items)) {
+      programs = raw.items;
+    } else if (raw && typeof raw === "object") {
+      programs = toArray(raw.Programs || raw.programs);
     }
 
     let skippedMissingIds = 0;
