@@ -46,6 +46,12 @@ function getJstParts(date) {
   return { day, hour, minute };
 }
 
+// 日本時間での "YYYY-MM-DD"
+function jstDateStr(date) {
+  const jst = new Date(date.getTime() + 9 * 60 * 60 * 1000);
+  return `${jst.getUTCFullYear()}-${pad(jst.getUTCMonth() + 1)}-${pad(jst.getUTCDate())}`;
+}
+
 function toArray(x) {
   if (!x) return [];
   if (Array.isArray(x)) return x;
@@ -190,7 +196,21 @@ export default async function handler(req, res) {
         const time = `${hour}:${pad(minute)}`;
         const chName = p.ChName || "不明チャンネル";
         const { category, provider } = classify(chName, p.ChURL);
-        entry.options.set(chId, { id: `${tid}-${chId}`, chName, category, provider, day, time });
+        entry.options.set(chId, { id: `${tid}-${chId}`, chName, category, provider, day, time, airings: [] });
+      }
+
+      // このチャンネルで実際に確認できた放送日時を(重複を除いて)ためていく。
+      // カレンダー表示は「曜日の繰り返し」ではなく、この実データの日付だけを使う。
+      const opt = entry.options.get(chId);
+      const dateStr = jstDateStr(stTime);
+      const { hour: ah, minute: am } = getJstParts(stTime);
+      const airingKey = `${dateStr}T${pad(ah)}:${pad(am)}`;
+      if (!opt.airings.includes(airingKey)) opt.airings.push(airingKey);
+    }
+
+    for (const entry of grouped.values()) {
+      for (const opt of entry.options.values()) {
+        opt.airings.sort();
       }
     }
 
