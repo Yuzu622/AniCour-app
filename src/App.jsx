@@ -129,6 +129,14 @@ function findSelectedOption(anime, selected) {
   return anime.options.find((o) => selected.includes(o.id));
 }
 
+// そのオプションで一番近い(=実データで確認できている最初の)放送日を "8/6" のように整形する
+function formatNextAiring(o) {
+  if (!o.airings || o.airings.length === 0) return null;
+  const datePart = o.airings[0].split("T")[0];
+  const [, m, d] = datePart.split("-");
+  return `${Number(m)}/${Number(d)}`;
+}
+
 function AnimeRow({ anime, selected, notify, isExpanded, onToggleExpand, onSelectOption, onToggleNotify, colorOverrides }) {
   const chosen = findSelectedOption(anime, selected);
 
@@ -176,6 +184,7 @@ function AnimeRow({ anime, selected, notify, isExpanded, onToggleExpand, onSelec
               </span>
               <span style={{ fontSize: 11.5, color: INK_SOFT }}>
                 {WEEKDAYS_JA[chosen.day]}曜 {chosen.time}〜
+                {formatNextAiring(chosen) && ` ・次回 ${formatNextAiring(chosen)}`}
               </span>
             </div>
           ) : (
@@ -268,9 +277,12 @@ function AnimeRow({ anime, selected, notify, isExpanded, onToggleExpand, onSelec
                 <span style={{ fontSize: 12, fontWeight: 700, color: cat.color, background: cat.soft, padding: "2px 8px", borderRadius: 999 }}>
                   {o.chName}
                 </span>
-                <span style={{ fontSize: 12.5, color: INK, fontWeight: 500 }}>
+                <span style={{ fontSize: 12.5, color: INK, fontWeight: 500, flex: 1 }}>
                   {WEEKDAYS_JA[o.day]}曜 {o.time}〜
                 </span>
+                {formatNextAiring(o) && (
+                  <span style={{ fontSize: 11, color: INK_SOFT, flexShrink: 0 }}>次回 {formatNextAiring(o)}</span>
+                )}
               </button>
             );
           })}
@@ -458,14 +470,20 @@ export default function App() {
     return list;
   }, [animeList, selected]);
 
-  const eventsForDow = useMemo(() => {
+  // 実際に取得できた放送日(airings)だけを使って、日付ごとのイベント一覧を作る。
+  // 「曜日の繰り返し」で無限に表示するのではなく、本物のデータがある日だけ表示する。
+  const eventsByDate = useMemo(() => {
     const map = {};
     for (const e of selectedEvents) {
-      if (!map[e.day]) map[e.day] = [];
-      map[e.day].push(e);
+      const airings = e.airings && e.airings.length > 0 ? e.airings : [];
+      for (const a of airings) {
+        const [datePart, timePart] = a.split("T");
+        if (!map[datePart]) map[datePart] = [];
+        map[datePart].push({ ...e, time: timePart });
+      }
     }
     for (const key of Object.keys(map)) {
-      map[key].sort((x, y) => timeToMinutes(x.time) - timeToMinutes(y.time));
+      map[key].sort((x, y) => (x.time > y.time ? 1 : -1));
     }
     return map;
   }, [selectedEvents]);
@@ -670,7 +688,8 @@ export default function App() {
 
           {weeks.map((week, wi) =>
             week.map((cell, ci) => {
-              const evts = cell.inMonth ? eventsForDow[ci] || [] : [];
+              const cellKey = `${cell.year}-${String(cell.month + 1).padStart(2, "0")}-${String(cell.date).padStart(2, "0")}`;
+              const evts = cell.inMonth ? eventsByDate[cellKey] || [] : [];
               const today_ = isToday(cell);
               return (
                 <div
