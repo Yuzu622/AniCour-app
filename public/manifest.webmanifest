@@ -1,6 +1,6 @@
 {
-  "name": "アニメクールカレンダー",
-  "short_name": "アニメクール",
+  "name": "AniCour(アニクール)",
+  "short_name": "AniCour",
   "description": "自分が見ているアニメの放送・配信スケジュールをまとめるカレンダー",
   "start_url": "/",
   "scope": "/",
