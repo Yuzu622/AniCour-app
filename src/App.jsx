@@ -125,6 +125,14 @@ function timeToMinutes(t) {
   return h * 60 + m;
 }
 
+// 週表示ヘッダー用に "8/11-8/17" のような範囲文字列を作る
+function formatWeekRange(weekDays) {
+  if (!weekDays || weekDays.length === 0) return "";
+  const first = weekDays[0];
+  const last = weekDays[weekDays.length - 1];
+  return `${first.month + 1}/${first.date}-${last.month + 1}/${last.date}`;
+}
+
 function findSelectedOption(anime, selected) {
   return anime.options.find((o) => selected.includes(o.id));
 }
@@ -327,6 +335,8 @@ export default function App() {
   const [detailAnimeId, setDetailAnimeId] = useState(null);
   const [dayDetailKey, setDayDetailKey] = useState(null);
   const [isCompact, setIsCompact] = useState(false);
+  const [viewMode, setViewMode] = useState("month");
+  const [weekAnchor, setWeekAnchor] = useState(() => new Date());
 
   useEffect(() => {
     const mq = window.matchMedia("(max-width: 680px)");
@@ -465,12 +475,37 @@ export default function App() {
     setViewYear(y);
   };
 
+  const changeWeek = (delta) => {
+    setWeekAnchor((prev) => {
+      const d = new Date(prev);
+      d.setDate(d.getDate() + delta * 7);
+      return d;
+    });
+  };
+
   const goToday = () => {
-    setViewYear(today.getFullYear());
-    setViewMonth(today.getMonth());
+    if (viewMode === "week") {
+      setWeekAnchor(new Date());
+    } else {
+      setViewYear(today.getFullYear());
+      setViewMonth(today.getMonth());
+    }
   };
 
   const weeks = useMemo(() => buildMonthGrid(viewYear, viewMonth), [viewYear, viewMonth]);
+
+  // 週表示: weekAnchorを含む月曜始まりの7日間
+  const weekDays = useMemo(() => {
+    const d = new Date(weekAnchor);
+    const dow = (d.getDay() + 6) % 7; // 0=月 ... 6=日
+    const monday = new Date(d);
+    monday.setDate(d.getDate() - dow);
+    return Array.from({ length: 7 }, (_, i) => {
+      const day = new Date(monday);
+      day.setDate(monday.getDate() + i);
+      return { year: day.getFullYear(), month: day.getMonth(), date: day.getDate(), inMonth: true };
+    });
+  }, [weekAnchor]);
 
   // 選択済みの視聴方法をフラット化(タイトル情報を付けてカレンダー描画に使う)
   const selectedEvents = useMemo(() => {
@@ -584,29 +619,83 @@ export default function App() {
             {!isCompact && <span style={{ fontSize: 13, color: INK_SOFT, fontWeight: 500 }}>AniCour ・ 視聴クール表</span>}
           </div>
 
-          <div style={{ display: "flex", alignItems: "center", gap: isCompact ? 4 : 8 }}>
-            <button onClick={goToday} style={isCompact ? { ...ghostBtn, padding: "5px 8px", fontSize: 11 } : ghostBtn}>
-              今日
-            </button>
-            <div style={{ display: "flex", alignItems: "center", gap: 2 }}>
-              <button onClick={() => changeMonth(-1)} style={isCompact ? { ...iconBtn, width: 26, height: 26 } : iconBtn} aria-label="前の月">
-                <ChevronLeft size={isCompact ? 15 : 18} />
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: isCompact ? 4 : 8,
+              width: isCompact ? "100%" : "auto",
+              justifyContent: isCompact ? "space-between" : "flex-start",
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: isCompact ? 4 : 8 }}>
+              <div style={{ display: "flex", border: `1px solid ${LINE}`, borderRadius: 999, padding: 2, gap: 2 }}>
+                <button
+                  onClick={() => setViewMode("month")}
+                  style={{
+                    border: "none",
+                    borderRadius: 999,
+                    padding: isCompact ? "4px 8px" : "5px 10px",
+                    fontSize: isCompact ? 10.5 : 12,
+                    fontWeight: 700,
+                    fontFamily: "inherit",
+                    cursor: "pointer",
+                    background: viewMode === "month" ? INK : "transparent",
+                    color: viewMode === "month" ? "#fff" : INK_SOFT,
+                  }}
+                >
+                  月
+                </button>
+                <button
+                  onClick={() => setViewMode("week")}
+                  style={{
+                    border: "none",
+                    borderRadius: 999,
+                    padding: isCompact ? "4px 8px" : "5px 10px",
+                    fontSize: isCompact ? 10.5 : 12,
+                    fontWeight: 700,
+                    fontFamily: "inherit",
+                    cursor: "pointer",
+                    background: viewMode === "week" ? INK : "transparent",
+                    color: viewMode === "week" ? "#fff" : INK_SOFT,
+                  }}
+                >
+                  週
+                </button>
+              </div>
+              <button onClick={goToday} style={isCompact ? { ...ghostBtn, padding: "5px 8px", fontSize: 11 } : ghostBtn}>
+                今日
               </button>
-              <span
-                style={{
-                  fontSize: isCompact ? 13 : 15,
-                  fontWeight: 700,
-                  minWidth: isCompact ? 34 : 66,
-                  textAlign: "center",
-                  fontFamily: "'M PLUS Rounded 1c', sans-serif",
-                }}
-              >
-                {viewMonth + 1}月
-              </span>
-              <button onClick={() => changeMonth(1)} style={isCompact ? { ...iconBtn, width: 26, height: 26 } : iconBtn} aria-label="次の月">
-                <ChevronRight size={isCompact ? 15 : 18} />
-              </button>
+              <div style={{ display: "flex", alignItems: "center", gap: 2 }}>
+                <button
+                  onClick={() => (viewMode === "week" ? changeWeek(-1) : changeMonth(-1))}
+                  style={isCompact ? { ...iconBtn, width: 26, height: 26 } : iconBtn}
+                  aria-label="前へ"
+                >
+                  <ChevronLeft size={isCompact ? 15 : 18} />
+                </button>
+                <span
+                  style={{
+                    fontSize: isCompact ? 12 : 15,
+                    fontWeight: 700,
+                    minWidth: isCompact ? 60 : 96,
+                    textAlign: "center",
+                    fontFamily: "'M PLUS Rounded 1c', sans-serif",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  {viewMode === "week" ? formatWeekRange(weekDays) : `${viewMonth + 1}月`}
+                </span>
+                <button
+                  onClick={() => (viewMode === "week" ? changeWeek(1) : changeMonth(1))}
+                  style={isCompact ? { ...iconBtn, width: 26, height: 26 } : iconBtn}
+                  aria-label="次へ"
+                >
+                  <ChevronRight size={isCompact ? 15 : 18} />
+                </button>
+              </div>
             </div>
+
             <button
               onClick={() => setModalOpen(true)}
               style={{
@@ -620,6 +709,8 @@ export default function App() {
                 gap: isCompact ? 3 : 6,
                 padding: isCompact ? "6px 10px" : "8px 16px",
                 fontSize: isCompact ? 12 : 13,
+                flexShrink: 0,
+                marginLeft: isCompact ? "auto" : 0,
               }}
             >
               <Plus size={isCompact ? 13 : 16} />
@@ -708,7 +799,7 @@ export default function App() {
             </div>
           ))}
 
-          {weeks.map((week, wi) =>
+          {(viewMode === "week" ? [weekDays] : weeks).map((week, wi) =>
             week.map((cell, ci) => {
               const cellKey = `${cell.year}-${String(cell.month + 1).padStart(2, "0")}-${String(cell.date).padStart(2, "0")}`;
               const evts = cell.inMonth ? eventsByDate[cellKey] || [] : [];
@@ -716,8 +807,11 @@ export default function App() {
               return (
                 <div
                   key={`${wi}-${ci}`}
+                  onClick={() => {
+                    if (isCompact && cell.inMonth && evts.length > 0) setDayDetailKey(cellKey);
+                  }}
                   style={{
-                    minHeight: isCompact ? 64 : 106,
+                    minHeight: isCompact ? (viewMode === "week" ? 130 : 66) : viewMode === "week" ? 220 : 106,
                     minWidth: 0,
                     padding: isCompact ? "4px 3px" : "8px 7px 8px",
                     borderRadius: isCompact ? 8 : 12,
@@ -726,6 +820,7 @@ export default function App() {
                     boxShadow: cell.inMonth ? "0 2px 0 rgba(43,33,64,0.05)" : "none",
                     opacity: cell.inMonth ? 1 : 0.35,
                     overflow: "hidden",
+                    cursor: isCompact && evts.length > 0 ? "pointer" : "default",
                   }}
                 >
                   <div
@@ -748,31 +843,26 @@ export default function App() {
 
                   {isCompact ? (
                     evts.length > 0 && (
-                      <div style={{ marginTop: 2, display: "flex", flexDirection: "column", gap: 1 }}>
-                        {evts.slice(0, 3).map((e) => (
+                      <div style={{ marginTop: 2, display: "flex", flexDirection: "column", gap: 2 }}>
+                        {evts.slice(0, viewMode === "week" ? 8 : 3).map((e) => (
                           <div
                             key={e.id}
-                            onClick={() => setDetailAnimeId(e.animeId)}
                             style={{
-                              fontSize: 8.5,
-                              lineHeight: 1.3,
+                              fontSize: 9.5,
+                              lineHeight: 1.5,
                               fontWeight: 700,
                               color: resolveStyle(e, colorOverrides).color,
                               whiteSpace: "nowrap",
                               overflow: "hidden",
                               textOverflow: "ellipsis",
-                              cursor: "pointer",
                             }}
                           >
                             {e.title}
                           </div>
                         ))}
-                        {evts.length > 3 && (
-                          <div
-                            onClick={() => setDayDetailKey(cellKey)}
-                            style={{ fontSize: 8.5, color: INK_SOFT, fontWeight: 700, cursor: "pointer" }}
-                          >
-                            +{evts.length - 3}件
+                        {evts.length > (viewMode === "week" ? 8 : 3) && (
+                          <div style={{ fontSize: 9, color: INK_SOFT, fontWeight: 700 }}>
+                            +{evts.length - (viewMode === "week" ? 8 : 3)}件
                           </div>
                         )}
                       </div>
