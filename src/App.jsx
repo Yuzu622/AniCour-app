@@ -325,6 +325,18 @@ export default function App() {
   const [expandedId, setExpandedId] = useState(null);
   const [saveError, setSaveError] = useState(false);
   const [detailAnimeId, setDetailAnimeId] = useState(null);
+  const [dayDetailKey, setDayDetailKey] = useState(null);
+  const [isCompact, setIsCompact] = useState(false);
+
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 680px)");
+    const update = () => setIsCompact(mq.matches);
+    update();
+    mq.addEventListener ? mq.addEventListener("change", update) : mq.addListener(update);
+    return () => {
+      mq.removeEventListener ? mq.removeEventListener("change", update) : mq.removeListener(update);
+    };
+  }, []);
   const [colorOverrides, setColorOverrides] = useState({});
   const [colorPanelOpen, setColorPanelOpen] = useState(false);
 
@@ -694,16 +706,20 @@ export default function App() {
               return (
                 <div
                   key={`${wi}-${ci}`}
+                  onClick={() => {
+                    if (isCompact && cell.inMonth && evts.length > 0) setDayDetailKey(cellKey);
+                  }}
                   style={{
-                    minHeight: 106,
+                    minHeight: isCompact ? 52 : 106,
                     minWidth: 0,
-                    padding: "8px 7px 8px",
+                    padding: isCompact ? "6px 4px" : "8px 7px 8px",
                     borderRadius: 12,
                     background: cell.inMonth ? SURFACE : "transparent",
                     border: cell.inMonth ? `1px solid ${LINE}` : "1px dashed transparent",
                     boxShadow: cell.inMonth ? "0 2px 0 rgba(43,33,64,0.05)" : "none",
                     opacity: cell.inMonth ? 1 : 0.35,
                     overflow: "hidden",
+                    cursor: isCompact && evts.length > 0 ? "pointer" : "default",
                   }}
                 >
                   <div
@@ -723,38 +739,59 @@ export default function App() {
                   >
                     {cell.date}
                   </div>
-                  <div style={{ marginTop: 5, display: "flex", flexDirection: "column", gap: 4 }}>
-                    {evts.map((e) => {
-                      const cat = resolveStyle(e, colorOverrides);
-                      return (
-                        <div
-                          key={e.id}
-                          onClick={() => setDetailAnimeId(e.animeId)}
-                          title={`${e.title} / ${e.chName} ${e.time}`}
-                          style={{
-                            display: "flex",
-                            alignItems: "center",
-                            gap: 4,
-                            fontSize: 10.5,
-                            lineHeight: 1.3,
-                            background: cat.soft,
-                            padding: "3px 7px",
-                            borderRadius: 999,
-                            overflow: "hidden",
-                            cursor: "pointer",
-                          }}
-                        >
-                          <span style={{ width: 6, height: 6, borderRadius: "50%", background: cat.color, flexShrink: 0 }} />
-                          <span style={{ fontVariantNumeric: "tabular-nums", color: cat.color, fontWeight: 700, flexShrink: 0 }}>
-                            {e.time}
-                          </span>
-                          <span style={{ minWidth: 0, flex: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", color: INK }}>
-                            {e.title}
-                          </span>
-                        </div>
-                      );
-                    })}
-                  </div>
+
+                  {isCompact ? (
+                    evts.length > 0 && (
+                      <div style={{ marginTop: 4, display: "flex", flexWrap: "wrap", gap: 3 }}>
+                        {evts.slice(0, 6).map((e) => (
+                          <span
+                            key={e.id}
+                            style={{
+                              width: 7,
+                              height: 7,
+                              borderRadius: "50%",
+                              background: resolveStyle(e, colorOverrides).color,
+                              flexShrink: 0,
+                            }}
+                          />
+                        ))}
+                        {evts.length > 6 && <span style={{ fontSize: 9, color: INK_SOFT }}>+{evts.length - 6}</span>}
+                      </div>
+                    )
+                  ) : (
+                    <div style={{ marginTop: 5, display: "flex", flexDirection: "column", gap: 4 }}>
+                      {evts.map((e) => {
+                        const cat = resolveStyle(e, colorOverrides);
+                        return (
+                          <div
+                            key={e.id}
+                            onClick={() => setDetailAnimeId(e.animeId)}
+                            title={`${e.title} / ${e.chName} ${e.time}`}
+                            style={{
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 4,
+                              fontSize: 10.5,
+                              lineHeight: 1.3,
+                              background: cat.soft,
+                              padding: "3px 7px",
+                              borderRadius: 999,
+                              overflow: "hidden",
+                              cursor: "pointer",
+                            }}
+                          >
+                            <span style={{ width: 6, height: 6, borderRadius: "50%", background: cat.color, flexShrink: 0 }} />
+                            <span style={{ fontVariantNumeric: "tabular-nums", color: cat.color, fontWeight: 700, flexShrink: 0 }}>
+                              {e.time}
+                            </span>
+                            <span style={{ minWidth: 0, flex: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", color: INK }}>
+                              {e.title}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
               );
             })
@@ -939,6 +976,105 @@ export default function App() {
 
             <div style={{ padding: "10px 18px", borderTop: `1px solid ${LINE}`, fontSize: 11, color: INK_SOFT }}>
               通知トグルは表示のみのデモです。実運用ではブラウザのプッシュ通知権限が別途必要です。
+            </div>
+          </div>
+        </div>
+      )}
+
+      {dayDetailKey && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(43,33,64,0.45)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 65,
+            padding: 20,
+          }}
+          onClick={() => setDayDetailKey(null)}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              background: SURFACE,
+              width: "100%",
+              maxWidth: 420,
+              maxHeight: "80vh",
+              display: "flex",
+              flexDirection: "column",
+              borderRadius: 20,
+              overflow: "hidden",
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                padding: "16px 18px",
+                background: PINK,
+              }}
+            >
+              <div style={{ fontFamily: "'M PLUS Rounded 1c', sans-serif", fontWeight: 800, fontSize: 17, color: "#fff" }}>
+                {(() => {
+                  const [y, m, d] = dayDetailKey.split("-").map(Number);
+                  const wd = (new Date(y, m - 1, d).getDay() + 6) % 7;
+                  return `${m}月${d}日(${WEEKDAYS_JA[wd]})`;
+                })()}
+              </div>
+              <button
+                onClick={() => setDayDetailKey(null)}
+                style={{ ...iconBtn, border: "none", background: "rgba(255,255,255,0.25)", color: "#fff" }}
+                aria-label="閉じる"
+              >
+                <X size={18} />
+              </button>
+            </div>
+            <div style={{ overflowY: "auto" }}>
+              {(eventsByDate[dayDetailKey] || []).map((e) => {
+                const cat = resolveStyle(e, colorOverrides);
+                return (
+                  <button
+                    key={e.id}
+                    onClick={() => {
+                      setDetailAnimeId(e.animeId);
+                      setDayDetailKey(null);
+                    }}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 10,
+                      width: "100%",
+                      padding: "12px 18px",
+                      border: "none",
+                      borderBottom: `1px solid ${LINE}`,
+                      background: "transparent",
+                      cursor: "pointer",
+                      textAlign: "left",
+                      fontFamily: "inherit",
+                    }}
+                  >
+                    <span style={{ width: 9, height: 9, borderRadius: "50%", background: cat.color, flexShrink: 0 }} />
+                    <span
+                      style={{
+                        fontSize: 12.5,
+                        fontWeight: 700,
+                        color: cat.color,
+                        fontVariantNumeric: "tabular-nums",
+                        flexShrink: 0,
+                      }}
+                    >
+                      {e.time}
+                    </span>
+                    <span style={{ flex: 1, minWidth: 0, fontSize: 13.5, fontWeight: 700, color: INK, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      {e.title}
+                    </span>
+                    <span style={{ fontSize: 11, color: INK_SOFT, flexShrink: 0 }}>{e.chName}</span>
+                  </button>
+                );
+              })}
             </div>
           </div>
         </div>
