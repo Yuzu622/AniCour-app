@@ -544,7 +544,7 @@ export default function App() {
         color: INK,
         background: BG,
         minHeight: "100vh",
-        padding: "24px",
+        padding: isCompact ? "10px" : "24px",
       }}
     >
       <style>{FONT_IMPORT}</style>
@@ -555,55 +555,56 @@ export default function App() {
             display: "flex",
             alignItems: "center",
             justifyContent: "space-between",
-            marginBottom: 18,
+            marginBottom: isCompact ? 8 : 18,
             flexWrap: "wrap",
-            gap: 12,
+            gap: isCompact ? 6 : 12,
           }}
         >
-          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: isCompact ? 6 : 12, minWidth: 0 }}>
             <span
               style={{
                 fontFamily: "'M PLUS Rounded 1c', sans-serif",
                 fontWeight: 800,
-                fontSize: 22,
+                fontSize: isCompact ? 14 : 22,
                 letterSpacing: "0.02em",
                 color: "#fff",
                 background: PINK,
-                padding: "8px 18px",
+                padding: isCompact ? "5px 10px" : "8px 18px",
                 borderRadius: 999,
-                boxShadow: "0 4px 0 #D62A63",
+                boxShadow: isCompact ? "0 2px 0 #D62A63" : "0 4px 0 #D62A63",
                 display: "inline-flex",
                 alignItems: "center",
                 gap: 6,
+                whiteSpace: "nowrap",
               }}
             >
-              <Sparkles size={17} />
+              <Sparkles size={isCompact ? 13 : 17} />
               {viewYear}年 {COUR_NAME(viewMonth + 1)}
             </span>
-            <span style={{ fontSize: 13, color: INK_SOFT, fontWeight: 500 }}>視聴クール表</span>
+            {!isCompact && <span style={{ fontSize: 13, color: INK_SOFT, fontWeight: 500 }}>AniCour ・ 視聴クール表</span>}
           </div>
 
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <button onClick={goToday} style={ghostBtn}>
+          <div style={{ display: "flex", alignItems: "center", gap: isCompact ? 4 : 8 }}>
+            <button onClick={goToday} style={isCompact ? { ...ghostBtn, padding: "5px 8px", fontSize: 11 } : ghostBtn}>
               今日
             </button>
             <div style={{ display: "flex", alignItems: "center", gap: 2 }}>
-              <button onClick={() => changeMonth(-1)} style={iconBtn} aria-label="前の月">
-                <ChevronLeft size={18} />
+              <button onClick={() => changeMonth(-1)} style={isCompact ? { ...iconBtn, width: 26, height: 26 } : iconBtn} aria-label="前の月">
+                <ChevronLeft size={isCompact ? 15 : 18} />
               </button>
               <span
                 style={{
-                  fontSize: 15,
+                  fontSize: isCompact ? 13 : 15,
                   fontWeight: 700,
-                  minWidth: 66,
+                  minWidth: isCompact ? 34 : 66,
                   textAlign: "center",
                   fontFamily: "'M PLUS Rounded 1c', sans-serif",
                 }}
               >
                 {viewMonth + 1}月
               </span>
-              <button onClick={() => changeMonth(1)} style={iconBtn} aria-label="次の月">
-                <ChevronRight size={18} />
+              <button onClick={() => changeMonth(1)} style={isCompact ? { ...iconBtn, width: 26, height: 26 } : iconBtn} aria-label="次の月">
+                <ChevronRight size={isCompact ? 15 : 18} />
               </button>
             </div>
             <button
@@ -613,13 +614,15 @@ export default function App() {
                 background: BLUE,
                 color: "#fff",
                 border: "none",
-                boxShadow: "0 4px 0 #1E7FCC",
+                boxShadow: isCompact ? "0 2px 0 #1E7FCC" : "0 4px 0 #1E7FCC",
                 display: "flex",
                 alignItems: "center",
-                gap: 6,
+                gap: isCompact ? 3 : 6,
+                padding: isCompact ? "6px 10px" : "8px 16px",
+                fontSize: isCompact ? 12 : 13,
               }}
             >
-              <Plus size={16} />
+              <Plus size={isCompact ? 13 : 16} />
               作品を追加
             </button>
           </div>
@@ -627,34 +630,41 @@ export default function App() {
 
         <div
           style={{
-            fontSize: 12,
+            fontSize: isCompact ? 10.5 : 12,
             color: INK_SOFT,
-            margin: "0 0 16px",
+            margin: isCompact ? "0 0 8px" : "0 0 16px",
             background: SURFACE,
             border: `1px solid ${LINE}`,
-            borderRadius: 12,
-            padding: "8px 14px",
+            borderRadius: isCompact ? 8 : 12,
+            padding: isCompact ? "4px 8px" : "8px 14px",
             display: "flex",
             alignItems: "center",
             justifyContent: "space-between",
             gap: 10,
-            flexWrap: "wrap",
+            flexWrap: "nowrap",
           }}
         >
-          <span>
-            しょぼいカレンダーから現在放送中のアニメ情報を取得しています(地上波・BS・CS中心、配信は登録があるものだけ)。
-            {updatedAt && !loading && (
-              <> 最終更新: {new Date(updatedAt).toLocaleString("ja-JP")}</>
-            )}
-            {saveError && <span style={{ color: PINK, marginLeft: 8, fontWeight: 700 }}>選択状態の保存に失敗しました。</span>}
-          </span>
+          {isCompact ? (
+            <span>
+              更新: {updatedAt && !loading ? new Date(updatedAt).toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit" }) : "-"}
+              {saveError && <span style={{ color: PINK, marginLeft: 6, fontWeight: 700 }}>保存失敗</span>}
+            </span>
+          ) : (
+            <span>
+              しょぼいカレンダーから現在放送中のアニメ情報を取得しています(地上波・BS・CS中心、配信は登録があるものだけ)。
+              {updatedAt && !loading && (
+                <> 最終更新: {new Date(updatedAt).toLocaleString("ja-JP")}</>
+              )}
+              {saveError && <span style={{ color: PINK, marginLeft: 8, fontWeight: 700 }}>選択状態の保存に失敗しました。</span>}
+            </span>
+          )}
           <button
             onClick={loadPrograms}
             disabled={loading}
-            style={{ ...ghostBtn, padding: "4px 10px", display: "flex", alignItems: "center", gap: 4 }}
+            style={{ ...ghostBtn, padding: isCompact ? "3px 8px" : "4px 10px", display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }}
           >
             <RefreshCw size={12} style={{ animation: loading ? "spin 1s linear infinite" : "none" }} />
-            更新
+            {!isCompact && "更新"}
           </button>
           <style>{`@keyframes spin { from { transform: rotate(0deg);} to { transform: rotate(360deg);} }`}</style>
         </div>
@@ -679,18 +689,18 @@ export default function App() {
           </div>
         )}
 
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(7, minmax(0, 1fr))", gap: 6 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(7, minmax(0, 1fr))", gap: isCompact ? 3 : 6 }}>
           {WEEKDAYS_JA.map((w, i) => (
             <div
               key={w}
               style={{
                 textAlign: "center",
-                padding: "7px 0",
-                fontSize: 13,
+                padding: isCompact ? "4px 0" : "7px 0",
+                fontSize: isCompact ? 11 : 13,
                 fontWeight: 800,
                 fontFamily: "'M PLUS Rounded 1c', sans-serif",
                 background: WEEKDAY_SOFT[i],
-                borderRadius: 10,
+                borderRadius: isCompact ? 6 : 10,
                 color: WEEKDAY_COLORS[i],
               }}
             >
@@ -706,20 +716,16 @@ export default function App() {
               return (
                 <div
                   key={`${wi}-${ci}`}
-                  onClick={() => {
-                    if (isCompact && cell.inMonth && evts.length > 0) setDayDetailKey(cellKey);
-                  }}
                   style={{
-                    minHeight: isCompact ? 52 : 106,
+                    minHeight: isCompact ? 64 : 106,
                     minWidth: 0,
-                    padding: isCompact ? "6px 4px" : "8px 7px 8px",
-                    borderRadius: 12,
+                    padding: isCompact ? "4px 3px" : "8px 7px 8px",
+                    borderRadius: isCompact ? 8 : 12,
                     background: cell.inMonth ? SURFACE : "transparent",
                     border: cell.inMonth ? `1px solid ${LINE}` : "1px dashed transparent",
                     boxShadow: cell.inMonth ? "0 2px 0 rgba(43,33,64,0.05)" : "none",
                     opacity: cell.inMonth ? 1 : 0.35,
                     overflow: "hidden",
-                    cursor: isCompact && evts.length > 0 ? "pointer" : "default",
                   }}
                 >
                   <div
@@ -727,10 +733,10 @@ export default function App() {
                       display: "inline-flex",
                       alignItems: "center",
                       justifyContent: "center",
-                      width: 24,
-                      height: 24,
+                      width: isCompact ? 18 : 24,
+                      height: isCompact ? 18 : 24,
                       borderRadius: "50%",
-                      fontSize: 12,
+                      fontSize: isCompact ? 10.5 : 12,
                       fontWeight: today_ ? 800 : 500,
                       background: today_ ? PINK : "transparent",
                       color: today_ ? "#fff" : WEEKDAY_COLORS[ci],
@@ -742,20 +748,33 @@ export default function App() {
 
                   {isCompact ? (
                     evts.length > 0 && (
-                      <div style={{ marginTop: 4, display: "flex", flexWrap: "wrap", gap: 3 }}>
-                        {evts.slice(0, 6).map((e) => (
-                          <span
+                      <div style={{ marginTop: 2, display: "flex", flexDirection: "column", gap: 1 }}>
+                        {evts.slice(0, 3).map((e) => (
+                          <div
                             key={e.id}
+                            onClick={() => setDetailAnimeId(e.animeId)}
                             style={{
-                              width: 7,
-                              height: 7,
-                              borderRadius: "50%",
-                              background: resolveStyle(e, colorOverrides).color,
-                              flexShrink: 0,
+                              fontSize: 8.5,
+                              lineHeight: 1.3,
+                              fontWeight: 700,
+                              color: resolveStyle(e, colorOverrides).color,
+                              whiteSpace: "nowrap",
+                              overflow: "hidden",
+                              textOverflow: "ellipsis",
+                              cursor: "pointer",
                             }}
-                          />
+                          >
+                            {e.title}
+                          </div>
                         ))}
-                        {evts.length > 6 && <span style={{ fontSize: 9, color: INK_SOFT }}>+{evts.length - 6}</span>}
+                        {evts.length > 3 && (
+                          <div
+                            onClick={() => setDayDetailKey(cellKey)}
+                            style={{ fontSize: 8.5, color: INK_SOFT, fontWeight: 700, cursor: "pointer" }}
+                          >
+                            +{evts.length - 3}件
+                          </div>
+                        )}
                       </div>
                     )
                   ) : (
@@ -798,53 +817,81 @@ export default function App() {
           )}
         </div>
 
-        <div style={{ marginTop: 20, display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8 }}>
-          {availableGroups.map((g) => (
-            <div
-              key={g.key}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 6,
-                fontSize: 12,
-                fontWeight: 700,
-                color: g.style.color,
-                background: g.style.soft,
-                padding: "4px 12px",
-                borderRadius: 999,
-              }}
-            >
-              <span style={{ width: 8, height: 8, background: g.style.color, display: "inline-block", borderRadius: "50%" }} />
-              {g.label}
-            </div>
-          ))}
-          {availableGroups.length > 0 && (
-            <button
-              onClick={() => setColorPanelOpen(true)}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 4,
-                fontSize: 11.5,
-                fontWeight: 700,
-                color: INK_SOFT,
-                background: "transparent",
-                border: `1px dashed ${LINE}`,
-                padding: "4px 10px",
-                borderRadius: 999,
-                cursor: "pointer",
-                fontFamily: "inherit",
-              }}
-            >
-              <Palette size={12} />
-              色を編集
-            </button>
-          )}
-        </div>
+        {!isCompact && (
+          <div style={{ marginTop: 20, display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8 }}>
+            {availableGroups.map((g) => (
+              <div
+                key={g.key}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 6,
+                  fontSize: 12,
+                  fontWeight: 700,
+                  color: g.style.color,
+                  background: g.style.soft,
+                  padding: "4px 12px",
+                  borderRadius: 999,
+                }}
+              >
+                <span style={{ width: 8, height: 8, background: g.style.color, display: "inline-block", borderRadius: "50%" }} />
+                {g.label}
+              </div>
+            ))}
+            {availableGroups.length > 0 && (
+              <button
+                onClick={() => setColorPanelOpen(true)}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 4,
+                  fontSize: 11.5,
+                  fontWeight: 700,
+                  color: INK_SOFT,
+                  background: "transparent",
+                  border: `1px dashed ${LINE}`,
+                  padding: "4px 10px",
+                  borderRadius: 999,
+                  cursor: "pointer",
+                  fontFamily: "inherit",
+                }}
+              >
+                <Palette size={12} />
+                色を編集
+              </button>
+            )}
+          </div>
+        )}
 
-        <div style={{ marginTop: 12, fontSize: 12, color: INK_SOFT }}>
-          視聴中の作品：{selectedEvents.length > 0 ? selectedEvents.map((e) => e.title).join("、") : "まだ選択されていません"}
-        </div>
+        {isCompact && availableGroups.length > 0 && (
+          <button
+            onClick={() => setColorPanelOpen(true)}
+            style={{
+              marginTop: 8,
+              display: "flex",
+              alignItems: "center",
+              gap: 4,
+              fontSize: 10.5,
+              fontWeight: 700,
+              color: INK_SOFT,
+              background: "transparent",
+              border: `1px dashed ${LINE}`,
+              padding: "3px 9px",
+              borderRadius: 999,
+              cursor: "pointer",
+              fontFamily: "inherit",
+            }}
+          >
+            <Palette size={11} />
+            色を編集
+          </button>
+        )}
+
+        {!isCompact && (
+          <div style={{ marginTop: 12, fontSize: 12, color: INK_SOFT }}>
+            視聴中の作品：{selectedEvents.length > 0 ? selectedEvents.map((e) => e.title).join("、") : "まだ選択されていません"}
+          </div>
+        )}
       </div>
 
       {modalOpen && (
