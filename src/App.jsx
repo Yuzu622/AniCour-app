@@ -137,6 +137,12 @@ function findSelectedOption(anime, selected) {
   return anime.options.find((o) => selected.includes(o.id));
 }
 
+// 幅任せのCSS省略だと極端に短くなることがあるため、文字数で確実に切り詰める
+function truncateTitle(title, n) {
+  if (!title) return "";
+  return title.length > n ? title.slice(0, n) + "…" : title;
+}
+
 // そのオプションで一番近い(=実データで確認できている最初の)放送日を "8/6" のように整形する
 function formatNextAiring(o) {
   if (!o.airings || o.airings.length === 0) return null;
@@ -663,22 +669,29 @@ export default function App() {
                   週
                 </button>
               </div>
-              <button onClick={goToday} style={isCompact ? { ...ghostBtn, padding: "5px 8px", fontSize: 11 } : ghostBtn}>
+              <button
+                onClick={goToday}
+                style={
+                  isCompact
+                    ? { ...ghostBtn, padding: "5px 8px", fontSize: 11, whiteSpace: "nowrap", flexShrink: 0 }
+                    : { ...ghostBtn, whiteSpace: "nowrap" }
+                }
+              >
                 今日
               </button>
-              <div style={{ display: "flex", alignItems: "center", gap: 2 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 0 }}>
                 <button
                   onClick={() => (viewMode === "week" ? changeWeek(-1) : changeMonth(-1))}
-                  style={isCompact ? { ...iconBtn, width: 26, height: 26 } : iconBtn}
+                  style={isCompact ? { ...iconBtn, width: 24, height: 24 } : iconBtn}
                   aria-label="前へ"
                 >
-                  <ChevronLeft size={isCompact ? 15 : 18} />
+                  <ChevronLeft size={isCompact ? 14 : 18} />
                 </button>
                 <span
                   style={{
                     fontSize: isCompact ? 12 : 15,
                     fontWeight: 700,
-                    minWidth: isCompact ? 60 : 96,
+                    minWidth: isCompact ? 56 : 96,
                     textAlign: "center",
                     fontFamily: "'M PLUS Rounded 1c', sans-serif",
                     whiteSpace: "nowrap",
@@ -688,10 +701,10 @@ export default function App() {
                 </span>
                 <button
                   onClick={() => (viewMode === "week" ? changeWeek(1) : changeMonth(1))}
-                  style={isCompact ? { ...iconBtn, width: 26, height: 26 } : iconBtn}
+                  style={isCompact ? { ...iconBtn, width: 24, height: 24 } : iconBtn}
                   aria-label="次へ"
                 >
-                  <ChevronRight size={isCompact ? 15 : 18} />
+                  <ChevronRight size={isCompact ? 14 : 18} />
                 </button>
               </div>
             </div>
@@ -780,132 +793,209 @@ export default function App() {
           </div>
         )}
 
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(7, minmax(0, 1fr))", gap: isCompact ? 3 : 6 }}>
-          {WEEKDAYS_JA.map((w, i) => (
-            <div
-              key={w}
-              style={{
-                textAlign: "center",
-                padding: isCompact ? "4px 0" : "7px 0",
-                fontSize: isCompact ? 11 : 13,
-                fontWeight: 800,
-                fontFamily: "'M PLUS Rounded 1c', sans-serif",
-                background: WEEKDAY_SOFT[i],
-                borderRadius: isCompact ? 6 : 10,
-                color: WEEKDAY_COLORS[i],
-              }}
-            >
-              {w}
-            </div>
-          ))}
-
-          {(viewMode === "week" ? [weekDays] : weeks).map((week, wi) =>
-            week.map((cell, ci) => {
+        {viewMode === "week" && isCompact ? (
+          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            {weekDays.map((cell, i) => {
               const cellKey = `${cell.year}-${String(cell.month + 1).padStart(2, "0")}-${String(cell.date).padStart(2, "0")}`;
-              const evts = cell.inMonth ? eventsByDate[cellKey] || [] : [];
+              const evts = eventsByDate[cellKey] || [];
               const today_ = isToday(cell);
               return (
                 <div
-                  key={`${wi}-${ci}`}
-                  onClick={() => {
-                    if (isCompact && cell.inMonth && evts.length > 0) setDayDetailKey(cellKey);
-                  }}
+                  key={i}
+                  onClick={() => evts.length > 0 && setDayDetailKey(cellKey)}
                   style={{
-                    minHeight: isCompact ? (viewMode === "week" ? 130 : 66) : viewMode === "week" ? 220 : 106,
-                    minWidth: 0,
-                    padding: isCompact ? "4px 3px" : "8px 7px 8px",
-                    borderRadius: isCompact ? 8 : 12,
-                    background: cell.inMonth ? SURFACE : "transparent",
-                    border: cell.inMonth ? `1px solid ${LINE}` : "1px dashed transparent",
-                    boxShadow: cell.inMonth ? "0 2px 0 rgba(43,33,64,0.05)" : "none",
-                    opacity: cell.inMonth ? 1 : 0.35,
-                    overflow: "hidden",
-                    cursor: isCompact && evts.length > 0 ? "pointer" : "default",
+                    display: "flex",
+                    alignItems: "flex-start",
+                    gap: 10,
+                    padding: "8px 10px",
+                    borderRadius: 12,
+                    background: SURFACE,
+                    border: `1px solid ${LINE}`,
+                    cursor: evts.length > 0 ? "pointer" : "default",
                   }}
                 >
-                  <div
-                    style={{
-                      display: "inline-flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      width: isCompact ? 18 : 24,
-                      height: isCompact ? 18 : 24,
-                      borderRadius: "50%",
-                      fontSize: isCompact ? 10.5 : 12,
-                      fontWeight: today_ ? 800 : 500,
-                      background: today_ ? PINK : "transparent",
-                      color: today_ ? "#fff" : WEEKDAY_COLORS[ci],
-                      boxShadow: today_ ? "0 2px 0 #D62A63" : "none",
-                    }}
-                  >
-                    {cell.date}
+                  <div style={{ width: 42, flexShrink: 0, textAlign: "center" }}>
+                    <div style={{ fontSize: 10, fontWeight: 800, color: WEEKDAY_COLORS[i] }}>{WEEKDAYS_JA[i]}</div>
+                    <div
+                      style={{
+                        marginTop: 2,
+                        display: "inline-flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        width: 26,
+                        height: 26,
+                        borderRadius: "50%",
+                        fontSize: 13,
+                        fontWeight: today_ ? 800 : 600,
+                        background: today_ ? PINK : "transparent",
+                        color: today_ ? "#fff" : INK,
+                      }}
+                    >
+                      {cell.date}
+                    </div>
                   </div>
-
-                  {isCompact ? (
-                    evts.length > 0 && (
-                      <div style={{ marginTop: 2, display: "flex", flexDirection: "column", gap: 2 }}>
-                        {evts.slice(0, viewMode === "week" ? 8 : 3).map((e) => (
-                          <div
-                            key={e.id}
-                            style={{
-                              fontSize: 9.5,
-                              lineHeight: 1.5,
-                              fontWeight: 700,
-                              color: resolveStyle(e, colorOverrides).color,
-                              whiteSpace: "nowrap",
-                              overflow: "hidden",
-                              textOverflow: "ellipsis",
-                            }}
-                          >
-                            {e.title}
-                          </div>
-                        ))}
-                        {evts.length > (viewMode === "week" ? 8 : 3) && (
-                          <div style={{ fontSize: 9, color: INK_SOFT, fontWeight: 700 }}>
-                            +{evts.length - (viewMode === "week" ? 8 : 3)}件
-                          </div>
-                        )}
-                      </div>
-                    )
-                  ) : (
-                    <div style={{ marginTop: 5, display: "flex", flexDirection: "column", gap: 4 }}>
-                      {evts.map((e) => {
+                  <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 4, paddingTop: 3 }}>
+                    {evts.length === 0 ? (
+                      <span style={{ fontSize: 11, color: INK_SOFT }}>予定なし</span>
+                    ) : (
+                      evts.map((e) => {
                         const cat = resolveStyle(e, colorOverrides);
                         return (
-                          <div
-                            key={e.id}
-                            onClick={() => setDetailAnimeId(e.animeId)}
-                            title={`${e.title} / ${e.chName} ${e.time}`}
-                            style={{
-                              display: "flex",
-                              alignItems: "center",
-                              gap: 4,
-                              fontSize: 10.5,
-                              lineHeight: 1.3,
-                              background: cat.soft,
-                              padding: "3px 7px",
-                              borderRadius: 999,
-                              overflow: "hidden",
-                              cursor: "pointer",
-                            }}
-                          >
+                          <div key={e.id} style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 12 }}>
                             <span style={{ width: 6, height: 6, borderRadius: "50%", background: cat.color, flexShrink: 0 }} />
-                            <span style={{ fontVariantNumeric: "tabular-nums", color: cat.color, fontWeight: 700, flexShrink: 0 }}>
+                            <span style={{ color: cat.color, fontWeight: 700, fontVariantNumeric: "tabular-nums", flexShrink: 0 }}>
                               {e.time}
                             </span>
-                            <span style={{ minWidth: 0, flex: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", color: INK }}>
+                            <span
+                              style={{
+                                flex: 1,
+                                minWidth: 0,
+                                overflow: "hidden",
+                                textOverflow: "ellipsis",
+                                whiteSpace: "nowrap",
+                                color: INK,
+                                fontWeight: 600,
+                              }}
+                            >
                               {e.title}
                             </span>
                           </div>
                         );
-                      })}
-                    </div>
-                  )}
+                      })
+                    )}
+                  </div>
                 </div>
               );
-            })
-          )}
-        </div>
+            })}
+          </div>
+        ) : (
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(7, minmax(0, 1fr))", gap: isCompact ? 3 : 6 }}>
+            {WEEKDAYS_JA.map((w, i) => (
+              <div
+                key={w}
+                style={{
+                  textAlign: "center",
+                  padding: isCompact ? "4px 0" : "7px 0",
+                  fontSize: isCompact ? 11 : 13,
+                  fontWeight: 800,
+                  fontFamily: "'M PLUS Rounded 1c', sans-serif",
+                  background: WEEKDAY_SOFT[i],
+                  borderRadius: isCompact ? 6 : 10,
+                  color: WEEKDAY_COLORS[i],
+                }}
+              >
+                {w}
+              </div>
+            ))}
+
+            {(viewMode === "week" ? [weekDays] : weeks).map((week, wi) =>
+              week.map((cell, ci) => {
+                const cellKey = `${cell.year}-${String(cell.month + 1).padStart(2, "0")}-${String(cell.date).padStart(2, "0")}`;
+                const evts = cell.inMonth ? eventsByDate[cellKey] || [] : [];
+                const today_ = isToday(cell);
+                return (
+                  <div
+                    key={`${wi}-${ci}`}
+                    onClick={() => {
+                      if (isCompact && cell.inMonth && evts.length > 0) setDayDetailKey(cellKey);
+                    }}
+                    style={{
+                      minHeight: isCompact ? (viewMode === "week" ? 130 : 66) : viewMode === "week" ? 220 : 106,
+                      minWidth: 0,
+                      padding: isCompact ? "3px 2px" : "8px 7px 8px",
+                      borderRadius: isCompact ? 8 : 12,
+                      background: cell.inMonth ? SURFACE : "transparent",
+                      border: cell.inMonth ? `1px solid ${LINE}` : "1px dashed transparent",
+                      boxShadow: cell.inMonth ? "0 2px 0 rgba(43,33,64,0.05)" : "none",
+                      opacity: cell.inMonth ? 1 : 0.35,
+                      overflow: "hidden",
+                      cursor: isCompact && evts.length > 0 ? "pointer" : "default",
+                    }}
+                  >
+                    <div
+                      style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        width: isCompact ? 18 : 24,
+                        height: isCompact ? 18 : 24,
+                        borderRadius: "50%",
+                        fontSize: isCompact ? 10.5 : 12,
+                        fontWeight: today_ ? 800 : 500,
+                        background: today_ ? PINK : "transparent",
+                        color: today_ ? "#fff" : WEEKDAY_COLORS[ci],
+                        boxShadow: today_ ? "0 2px 0 #D62A63" : "none",
+                      }}
+                    >
+                      {cell.date}
+                    </div>
+
+                    {isCompact ? (
+                      evts.length > 0 && (
+                        <div style={{ marginTop: 2, display: "flex", flexDirection: "column", gap: 1.5 }}>
+                          {evts.slice(0, viewMode === "week" ? 8 : 3).map((e) => (
+                            <div
+                              key={e.id}
+                              style={{
+                                fontSize: 8.5,
+                                lineHeight: 1.4,
+                                fontWeight: 700,
+                                color: resolveStyle(e, colorOverrides).color,
+                                whiteSpace: "nowrap",
+                                overflow: "hidden",
+                                textOverflow: "ellipsis",
+                              }}
+                            >
+                              {truncateTitle(e.title, 5)}
+                            </div>
+                          ))}
+                          {evts.length > (viewMode === "week" ? 8 : 3) && (
+                            <div style={{ fontSize: 8.5, color: INK_SOFT, fontWeight: 700 }}>
+                              +{evts.length - (viewMode === "week" ? 8 : 3)}件
+                            </div>
+                          )}
+                        </div>
+                      )
+                    ) : (
+                      <div style={{ marginTop: 5, display: "flex", flexDirection: "column", gap: 4 }}>
+                        {evts.map((e) => {
+                          const cat = resolveStyle(e, colorOverrides);
+                          return (
+                            <div
+                              key={e.id}
+                              onClick={() => setDetailAnimeId(e.animeId)}
+                              title={`${e.title} / ${e.chName} ${e.time}`}
+                              style={{
+                                display: "flex",
+                                alignItems: "center",
+                                gap: 4,
+                                fontSize: 10.5,
+                                lineHeight: 1.3,
+                                background: cat.soft,
+                                padding: "3px 7px",
+                                borderRadius: 999,
+                                overflow: "hidden",
+                                cursor: "pointer",
+                              }}
+                            >
+                              <span style={{ width: 6, height: 6, borderRadius: "50%", background: cat.color, flexShrink: 0 }} />
+                              <span style={{ fontVariantNumeric: "tabular-nums", color: cat.color, fontWeight: 700, flexShrink: 0 }}>
+                                {e.time}
+                              </span>
+                              <span style={{ minWidth: 0, flex: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", color: INK }}>
+                                {e.title}
+                              </span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                );
+              })
+            )}
+          </div>
+        )}
 
         {!isCompact && (
           <div style={{ marginTop: 20, display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8 }}>
