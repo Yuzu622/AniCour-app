@@ -1148,53 +1148,51 @@ export default function App() {
           </div>
         )}
 
-        {isCompact && availableGroups.length > 0 && (
-          <button
-            onClick={() => setColorPanelOpen(true)}
-            style={{
-              marginTop: 8,
-              display: "flex",
-              alignItems: "center",
-              gap: 4,
-              fontSize: 10.5,
-              fontWeight: 700,
-              color: INK_SOFT,
-              background: "transparent",
-              border: `1px dashed ${LINE}`,
-              padding: "3px 9px",
-              borderRadius: 999,
-              cursor: "pointer",
-              fontFamily: "inherit",
-            }}
-          >
-            <Palette size={11} />
-            色を編集
-          </button>
-        )}
-
         {isCompact && (
-          <button
-            onClick={() => setSyncPanelOpen(true)}
-            style={{
-              marginTop: 8,
-              marginLeft: availableGroups.length > 0 ? 8 : 0,
-              display: "flex",
-              alignItems: "center",
-              gap: 4,
-              fontSize: 10.5,
-              fontWeight: 700,
-              color: INK_SOFT,
-              background: "transparent",
-              border: `1px dashed ${LINE}`,
-              padding: "3px 9px",
-              borderRadius: 999,
-              cursor: "pointer",
-              fontFamily: "inherit",
-            }}
-          >
-            <Smartphone size={11} />
-            同期
-          </button>
+          <div style={{ marginTop: 8, display: "flex", gap: 8, flexWrap: "wrap" }}>
+            {availableGroups.length > 0 && (
+              <button
+                onClick={() => setColorPanelOpen(true)}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 4,
+                  fontSize: 10.5,
+                  fontWeight: 700,
+                  color: INK_SOFT,
+                  background: "transparent",
+                  border: `1px dashed ${LINE}`,
+                  padding: "3px 9px",
+                  borderRadius: 999,
+                  cursor: "pointer",
+                  fontFamily: "inherit",
+                }}
+              >
+                <Palette size={11} />
+                色を編集
+              </button>
+            )}
+            <button
+              onClick={() => setSyncPanelOpen(true)}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 4,
+                fontSize: 10.5,
+                fontWeight: 700,
+                color: INK_SOFT,
+                background: "transparent",
+                border: `1px dashed ${LINE}`,
+                padding: "3px 9px",
+                borderRadius: 999,
+                cursor: "pointer",
+                fontFamily: "inherit",
+              }}
+            >
+              <Smartphone size={11} />
+              同期
+            </button>
+          </div>
         )}
 
         {!isCompact && (
