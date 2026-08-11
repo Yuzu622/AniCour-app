@@ -14,6 +14,7 @@ import {
   AlertTriangle,
   Palette,
   RotateCcw,
+  Smartphone,
 } from "lucide-react";
 
 const FONT_IMPORT = `@import url('https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@700;800&family=Noto+Sans+JP:wght@400;500;700&display=swap');`;
@@ -443,6 +444,84 @@ export default function App() {
     }
   }, []);
 
+  // 複数端末同期(合言葉ベース、Upstash Redis経由)
+  const [syncPanelOpen, setSyncPanelOpen] = useState(false);
+  const [syncCode, setSyncCode] = useState("");
+  const [syncCodeInput, setSyncCodeInput] = useState("");
+  const [syncBusy, setSyncBusy] = useState(false);
+  const [syncMsg, setSyncMsg] = useState("");
+
+  useEffect(() => {
+    try {
+      const saved = window.localStorage.getItem("anicour-sync-code");
+      if (saved) {
+        setSyncCode(saved);
+        setSyncCodeInput(saved);
+      }
+    } catch (e) {
+      // noop
+    }
+  }, []);
+
+  const uploadSync = async () => {
+    setSyncBusy(true);
+    setSyncMsg("");
+    try {
+      const body = { data: { selected, notify, colorOverrides } };
+      if (syncCodeInput.trim()) body.code = syncCodeInput.trim();
+      const res = await fetch("/api/sync", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || "保存に失敗しました");
+      setSyncCode(json.code);
+      setSyncCodeInput(json.code);
+      window.localStorage.setItem("anicour-sync-code", json.code);
+      setSyncMsg(`この端末の内容を保存しました。合言葉: ${json.code}`);
+    } catch (e) {
+      setSyncMsg("エラー: " + e.message);
+    }
+    setSyncBusy(false);
+  };
+
+  const downloadSync = async () => {
+    const code = syncCodeInput.trim();
+    if (!code) {
+      setSyncMsg("合言葉を入力してください");
+      return;
+    }
+    setSyncBusy(true);
+    setSyncMsg("");
+    try {
+      const res = await fetch(`/api/sync?code=${encodeURIComponent(code)}`);
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || "読み込みに失敗しました");
+      const d = json.data || {};
+      const nextSelected = d.selected || [];
+      const nextNotify = d.notify || {};
+      const nextColors = d.colorOverrides || {};
+      setSelected(nextSelected);
+      setNotify(nextNotify);
+      setColorOverrides(nextColors);
+      persist(nextSelected, nextNotify);
+      try {
+        window.localStorage.setItem(COLOR_OVERRIDES_KEY, JSON.stringify(nextColors));
+      } catch (e) {
+        // noop
+      }
+      const upperCode = code.toUpperCase();
+      setSyncCode(upperCode);
+      setSyncCodeInput(upperCode);
+      window.localStorage.setItem("anicour-sync-code", upperCode);
+      setSyncMsg("この端末に読み込みました");
+    } catch (e) {
+      setSyncMsg("エラー: " + e.message);
+    }
+    setSyncBusy(false);
+  };
+
   // ある作品について、選んだ視聴方法(optionId)をセットする。同じものをもう一度押すと解除。
   const selectOption = (anime, optionId) => {
     setSelected((prev) => {
@@ -541,13 +620,19 @@ export default function App() {
     return map;
   }, [selectedEvents]);
 
+  const [newOnly, setNewOnly] = useState(false);
+
   const filteredList = useMemo(() => {
     return animeList.filter((a) => {
       const platformOk = platformFilter === null || a.options.some((o) => groupKeyFor(o) === platformFilter);
       const qOk = query.trim() === "" || a.title.includes(query.trim());
-      return platformOk && qOk;
+      const newOk = !newOnly || a.isNew;
+      return platformOk && qOk && newOk;
     });
-  }, [animeList, platformFilter, query]);
+  }, [animeList, platformFilter, query, newOnly]);
+
+  // 今期の新番組らしきものが何件あるか(トグルの表示に使う)
+  const newCount = useMemo(() => animeList.filter((a) => a.isNew).length, [animeList]);
 
   // 今読み込めているデータの中に実際に存在するカテゴリ/配信サービスだけを絞り込みチップとして出す
   const availableGroups = useMemo(() => {
@@ -1040,6 +1125,26 @@ export default function App() {
                 色を編集
               </button>
             )}
+            <button
+              onClick={() => setSyncPanelOpen(true)}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 4,
+                fontSize: 11.5,
+                fontWeight: 700,
+                color: INK_SOFT,
+                background: "transparent",
+                border: `1px dashed ${LINE}`,
+                padding: "4px 10px",
+                borderRadius: 999,
+                cursor: "pointer",
+                fontFamily: "inherit",
+              }}
+            >
+              <Smartphone size={12} />
+              他の端末と同期
+            </button>
           </div>
         )}
 
@@ -1064,6 +1169,31 @@ export default function App() {
           >
             <Palette size={11} />
             色を編集
+          </button>
+        )}
+
+        {isCompact && (
+          <button
+            onClick={() => setSyncPanelOpen(true)}
+            style={{
+              marginTop: 8,
+              marginLeft: availableGroups.length > 0 ? 8 : 0,
+              display: "flex",
+              alignItems: "center",
+              gap: 4,
+              fontSize: 10.5,
+              fontWeight: 700,
+              color: INK_SOFT,
+              background: "transparent",
+              border: `1px dashed ${LINE}`,
+              padding: "3px 9px",
+              borderRadius: 999,
+              cursor: "pointer",
+              fontFamily: "inherit",
+            }}
+          >
+            <Smartphone size={11} />
+            同期
           </button>
         )}
 
@@ -1174,6 +1304,27 @@ export default function App() {
                   </button>
                 ))}
               </div>
+              {newCount > 0 && (
+                <label
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 6,
+                    marginTop: 10,
+                    fontSize: 12,
+                    color: INK_SOFT,
+                    cursor: "pointer",
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={newOnly}
+                    onChange={(e) => setNewOnly(e.target.checked)}
+                    style={{ width: 15, height: 15, accentColor: PINK, cursor: "pointer" }}
+                  />
+                  新番組らしき作品だけ表示({newCount}件・話数からの推測です)
+                </label>
+              )}
             </div>
 
             <div style={{ overflowY: "auto" }}>
@@ -1501,6 +1652,133 @@ export default function App() {
 
             <div style={{ padding: "10px 18px", borderTop: `1px solid ${LINE}`, fontSize: 11, color: INK_SOFT }}>
               丸いアイコンをタップすると色を選べます。変更はこの端末に保存されます。
+            </div>
+          </div>
+        </div>
+      )}
+
+      {syncPanelOpen && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(43,33,64,0.45)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 70,
+            padding: 20,
+          }}
+          onClick={() => setSyncPanelOpen(false)}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              background: SURFACE,
+              width: "100%",
+              maxWidth: 420,
+              maxHeight: "85vh",
+              display: "flex",
+              flexDirection: "column",
+              borderRadius: 20,
+              overflow: "hidden",
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                padding: "16px 18px",
+                background: BLUE,
+              }}
+            >
+              <div>
+                <div style={{ fontFamily: "'M PLUS Rounded 1c', sans-serif", fontWeight: 800, fontSize: 17, color: "#fff" }}>
+                  他の端末と同期
+                </div>
+                <div style={{ fontSize: 12, color: "#E4F3FF", marginTop: 2 }}>
+                  合言葉を使って選択状態を共有します
+                </div>
+              </div>
+              <button
+                onClick={() => setSyncPanelOpen(false)}
+                style={{ ...iconBtn, border: "none", background: "rgba(255,255,255,0.25)", color: "#fff" }}
+                aria-label="閉じる"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div style={{ padding: "18px", overflowY: "auto" }}>
+              <div style={{ fontSize: 12.5, color: INK_SOFT, lineHeight: 1.6, marginBottom: 14 }}>
+                この端末の選択状態を「合言葉」に紐づけて保存できます。別の端末で同じ合言葉を入力して読み込めば、選んだ作品・通知設定・色の設定がそのまま反映されます。
+              </div>
+
+              <label style={{ fontSize: 12, fontWeight: 700, color: INK, display: "block", marginBottom: 6 }}>
+                合言葉
+              </label>
+              <input
+                value={syncCodeInput}
+                onChange={(e) => setSyncCodeInput(e.target.value)}
+                placeholder="例: ABC123(空欄なら新規発行)"
+                style={{
+                  width: "100%",
+                  boxSizing: "border-box",
+                  border: `1px solid ${LINE}`,
+                  borderRadius: 12,
+                  padding: "10px 12px",
+                  fontSize: 14,
+                  fontFamily: "inherit",
+                  color: INK,
+                  marginBottom: 12,
+                }}
+              />
+
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                <button
+                  onClick={uploadSync}
+                  disabled={syncBusy}
+                  style={{
+                    ...ghostBtn,
+                    flex: 1,
+                    background: BLUE,
+                    color: "#fff",
+                    border: "none",
+                    justifyContent: "center",
+                    opacity: syncBusy ? 0.6 : 1,
+                  }}
+                >
+                  この端末の内容を保存
+                </button>
+                <button
+                  onClick={downloadSync}
+                  disabled={syncBusy}
+                  style={{
+                    ...ghostBtn,
+                    flex: 1,
+                    justifyContent: "center",
+                    opacity: syncBusy ? 0.6 : 1,
+                  }}
+                >
+                  合言葉から読み込む
+                </button>
+              </div>
+
+              {syncCode && (
+                <div style={{ marginTop: 14, fontSize: 12, color: INK_SOFT }}>
+                  現在の合言葉: <span style={{ fontWeight: 700, color: INK }}>{syncCode}</span>
+                </div>
+              )}
+              {syncMsg && (
+                <div style={{ marginTop: 10, fontSize: 12.5, color: syncMsg.startsWith("エラー") ? "#C0392B" : "#1E7F4C" }}>
+                  {syncMsg}
+                </div>
+              )}
+            </div>
+
+            <div style={{ padding: "10px 18px", borderTop: `1px solid ${LINE}`, fontSize: 11, color: INK_SOFT }}>
+              合言葉を知っている人は誰でも読み書きできる簡易的な仕組みです。他人に推測されにくい文字列にしてください。
             </div>
           </div>
         </div>
