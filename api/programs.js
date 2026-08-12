@@ -191,12 +191,12 @@ export default async function handler(req, res) {
       }
       const entry = grouped.get(tid);
 
-      // SubTitle2 の先頭にある話数(例: "#1 予告" "#190 ウェコムンド編")から
-      // 「今クールの新番組かどうか」を推測するための手がかりを拾っておく
-      const epMatch = String(p.SubTitle2 || "").match(/#(\d{1,4})/);
-      if (epMatch) {
-        const epNum = Number(epMatch[1]);
-        if (entry.minEpisode === null || epNum < entry.minEpisode) entry.minEpisode = epNum;
+      // 話数は Count フィールドにそのまま数値で入っている(SubTitleは話のサブタイトル文なので使わない)。
+      // 「今クールの新番組かどうか」の推測にも使う。
+      const countNum = Number(p.Count);
+      const epNum = Number.isInteger(countNum) && countNum > 0 ? countNum : null;
+      if (epNum !== null && (entry.minEpisode === null || epNum < entry.minEpisode)) {
+        entry.minEpisode = epNum;
       }
 
       if (!entry.options.has(chId)) {
@@ -214,7 +214,7 @@ export default async function handler(req, res) {
       const { hour: ah, minute: am } = getJstParts(stTime);
       const airingKey = `${dateStr}T${pad(ah)}:${pad(am)}`;
       if (!opt.airings.some((a) => a.key === airingKey)) {
-        opt.airings.push({ key: airingKey, episode: epMatch ? Number(epMatch[1]) : null });
+        opt.airings.push({ key: airingKey, episode: epNum });
       }
     }
 
