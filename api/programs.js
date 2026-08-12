@@ -241,7 +241,17 @@ export default async function handler(req, res) {
       const matched = q
         ? programs
             .filter((p) => String(p.Title || "").includes(q))
-            .map((p) => ({ Title: p.Title, ChName: p.ChName, ChURL: p.ChURL, ChID: p.ChID, TID: p.TID, StTime: p.StTime }))
+            .map((p) => ({
+              Title: p.Title,
+              ChName: p.ChName,
+              ChURL: p.ChURL,
+              ChID: p.ChID,
+              TID: p.TID,
+              StTime: p.StTime,
+              SubTitle: p.SubTitle,
+              SubTitle2: p.SubTitle2,
+              Count: p.Count,
+            }))
         : null;
       const allTimes = programs.map((p) => parseEpochSeconds(p.StTime)).filter(Boolean).map((d) => d.getTime());
       const latestCoveredDate = allTimes.length ? new Date(Math.max(...allTimes)).toISOString() : null;
