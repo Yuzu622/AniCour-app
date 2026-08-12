@@ -147,9 +147,16 @@ function truncateTitle(title, n) {
 // そのオプションで一番近い(=実データで確認できている最初の)放送日を "8/6" のように整形する
 function formatNextAiring(o) {
   if (!o.airings || o.airings.length === 0) return null;
-  const datePart = o.airings[0].split("T")[0];
+  const datePart = o.airings[0].key.split("T")[0];
   const [, m, d] = datePart.split("-");
   return `${Number(m)}/${Number(d)}`;
+}
+
+// 直近でわかっている話数("第12話"のように整形、不明ならnull)
+function nextEpisodeLabel(o) {
+  if (!o.airings || o.airings.length === 0) return null;
+  const ep = o.airings[0].episode;
+  return ep ? `第${ep}話` : null;
 }
 
 function AnimeRow({ anime, selected, notify, isExpanded, onToggleExpand, onSelectOption, onToggleNotify, colorOverrides }) {
@@ -200,6 +207,7 @@ function AnimeRow({ anime, selected, notify, isExpanded, onToggleExpand, onSelec
               <span style={{ fontSize: 11.5, color: INK_SOFT }}>
                 {WEEKDAYS_JA[chosen.day]}曜 {chosen.time}〜
                 {formatNextAiring(chosen) && ` ・次回 ${formatNextAiring(chosen)}`}
+                {nextEpisodeLabel(chosen) && ` (${nextEpisodeLabel(chosen)})`}
               </span>
             </div>
           ) : (
@@ -296,7 +304,10 @@ function AnimeRow({ anime, selected, notify, isExpanded, onToggleExpand, onSelec
                   {WEEKDAYS_JA[o.day]}曜 {o.time}〜
                 </span>
                 {formatNextAiring(o) && (
-                  <span style={{ fontSize: 11, color: INK_SOFT, flexShrink: 0 }}>次回 {formatNextAiring(o)}</span>
+                  <span style={{ fontSize: 11, color: INK_SOFT, flexShrink: 0 }}>
+                    次回 {formatNextAiring(o)}
+                    {nextEpisodeLabel(o) && ` (${nextEpisodeLabel(o)})`}
+                  </span>
                 )}
               </button>
             );
@@ -609,9 +620,9 @@ export default function App() {
     for (const e of selectedEvents) {
       const airings = e.airings && e.airings.length > 0 ? e.airings : [];
       for (const a of airings) {
-        const [datePart, timePart] = a.split("T");
+        const [datePart, timePart] = a.key.split("T");
         if (!map[datePart]) map[datePart] = [];
-        map[datePart].push({ ...e, time: timePart });
+        map[datePart].push({ ...e, time: timePart, episode: a.episode });
       }
     }
     for (const key of Object.keys(map)) {
@@ -1446,6 +1457,9 @@ export default function App() {
                     </span>
                     <span style={{ flex: 1, minWidth: 0, fontSize: 13.5, fontWeight: 700, color: INK, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                       {e.title}
+                      {e.episode && (
+                        <span style={{ fontSize: 11, fontWeight: 500, color: INK_SOFT }}> 第{e.episode}話</span>
+                      )}
                     </span>
                     <span style={{ fontSize: 11, color: INK_SOFT, flexShrink: 0 }}>{e.chName}</span>
                   </button>
