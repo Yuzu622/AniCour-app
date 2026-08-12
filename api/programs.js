@@ -187,9 +187,17 @@ export default async function handler(req, res) {
       const title = p.Title || p.ShortTitle || `不明の作品(TID:${tid})`;
 
       if (!grouped.has(tid)) {
-        grouped.set(tid, { id: String(tid), title, options: new Map() });
+        grouped.set(tid, { id: String(tid), title, options: new Map(), minEpisode: null });
       }
       const entry = grouped.get(tid);
+
+      // SubTitle2 の先頭にある話数(例: "#1 予告" "#190 ウェコムンド編")から
+      // 「今クールの新番組かどうか」を推測するための手がかりを拾っておく
+      const epMatch = String(p.SubTitle2 || "").match(/#(\d{1,4})/);
+      if (epMatch) {
+        const epNum = Number(epMatch[1]);
+        if (entry.minEpisode === null || epNum < entry.minEpisode) entry.minEpisode = epNum;
+      }
 
       if (!entry.options.has(chId)) {
         const { day, hour, minute } = getJstParts(stTime);
@@ -205,17 +213,25 @@ export default async function handler(req, res) {
       const dateStr = jstDateStr(stTime);
       const { hour: ah, minute: am } = getJstParts(stTime);
       const airingKey = `${dateStr}T${pad(ah)}:${pad(am)}`;
-      if (!opt.airings.includes(airingKey)) opt.airings.push(airingKey);
+      if (!opt.airings.some((a) => a.key === airingKey)) {
+        opt.airings.push({ key: airingKey, episode: epMatch ? Number(epMatch[1]) : null });
+      }
     }
 
     for (const entry of grouped.values()) {
       for (const opt of entry.options.values()) {
-        opt.airings.sort();
+        opt.airings.sort((a, b) => (a.key > b.key ? 1 : -1));
       }
     }
 
     const items = Array.from(grouped.values())
-      .map((a) => ({ id: a.id, title: a.title, options: Array.from(a.options.values()) }))
+      .map((a) => ({
+        id: a.id,
+        title: a.title,
+        // 話数の最小値が1〜2話なら「今クールの新番組らしい」とみなす(推測のため完璧ではない)
+        isNew: a.minEpisode !== null && a.minEpisode <= 2,
+        options: Array.from(a.options.values()),
+      }))
       .filter((a) => a.options.length > 0)
       .sort((a, b) => a.title.localeCompare(b.title, "ja"));
 
