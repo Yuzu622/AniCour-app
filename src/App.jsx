@@ -61,6 +61,8 @@ const PROVIDER_STYLE = {
 };
 const FALLBACK_STYLE = { color: "#8577A3", soft: "#EFEBF5" };
 const COLOR_OVERRIDES_KEY = "anime-tracker-colors";
+// プッシュ通知用のVAPID公開鍵(秘密鍵はサーバー側だけに置く。これは公開して問題ない値)
+const VAPID_PUBLIC_KEY = "BD5uwcq4jihRRuWhXVoBOZRX4Bc-G57sFAHXcJPlHiEXzPe6AJDXcU-ZA-uc04CT_3tnwd3cpSiuevYKqg1isnY";
 
 // 視聴オプション1件ぶんの色・ラベル・絞り込み用キーをまとめて解決する
 function styleFor(o) {
@@ -531,6 +533,99 @@ export default function App() {
       setSyncMsg("エラー: " + e.message);
     }
     setSyncBusy(false);
+  };
+
+  // プッシュ通知(配信直前のお知らせ)
+  const [pushEnabled, setPushEnabled] = useState(false);
+  const [pushBusy, setPushBusy] = useState(false);
+  const [pushMsg, setPushMsg] = useState("");
+
+  useEffect(() => {
+    if (!("serviceWorker" in navigator) || !("PushManager" in window)) return;
+    navigator.serviceWorker.ready
+      .then((reg) => reg.pushManager.getSubscription())
+      .then((sub) => setPushEnabled(!!sub))
+      .catch(() => {});
+  }, []);
+
+  function urlBase64ToUint8Array(base64String) {
+    const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
+    const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
+    const rawData = window.atob(base64);
+    return Uint8Array.from([...rawData].map((c) => c.charCodeAt(0)));
+  }
+
+  const enablePush = async () => {
+    setPushBusy(true);
+    setPushMsg("");
+    try {
+      if (!("serviceWorker" in navigator) || !("PushManager" in window)) {
+        throw new Error("この端末/ブラウザはプッシュ通知に対応していません");
+      }
+      if (!VAPID_PUBLIC_KEY) {
+        throw new Error("通知機能の設定(VAPID鍵)が未完了です");
+      }
+      // 通知を紐づけるための合言葉が無ければ、先に自動発行して端末の内容を保存する
+      let code = syncCodeInput.trim();
+      if (!code) {
+        const body = { data: { selected, notify, colorOverrides } };
+        const res = await fetch("/api/sync", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        });
+        const json = await res.json();
+        if (!res.ok) throw new Error(json.error || "合言葉の発行に失敗しました");
+        code = json.code;
+        setSyncCode(code);
+        setSyncCodeInput(code);
+        window.localStorage.setItem("anicour-sync-code", code);
+      }
+
+      const permission = await Notification.requestPermission();
+      if (permission !== "granted") throw new Error("通知が許可されませんでした");
+
+      const reg = await navigator.serviceWorker.ready;
+      let sub = await reg.pushManager.getSubscription();
+      if (!sub) {
+        sub = await reg.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
+        });
+      }
+
+      const res2 = await fetch("/api/push-subscribe", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code, subscription: sub }),
+      });
+      const json2 = await res2.json();
+      if (!res2.ok) throw new Error(json2.error || "登録に失敗しました");
+
+      setPushEnabled(true);
+      setPushMsg("通知をONにしました。忘れずに「この端末の内容を保存」もしておくと、選び直すたびに反映されます。");
+    } catch (e) {
+      setPushMsg("エラー: " + e.message);
+    }
+    setPushBusy(false);
+  };
+
+  const disablePush = async () => {
+    setPushBusy(true);
+    setPushMsg("");
+    try {
+      const reg = await navigator.serviceWorker.ready;
+      const sub = await reg.pushManager.getSubscription();
+      if (sub) await sub.unsubscribe();
+      if (syncCode) {
+        await fetch(`/api/push-subscribe?code=${encodeURIComponent(syncCode)}`, { method: "DELETE" });
+      }
+      setPushEnabled(false);
+      setPushMsg("通知をOFFにしました");
+    } catch (e) {
+      setPushMsg("エラー: " + e.message);
+    }
+    setPushBusy(false);
   };
 
   // ある作品について、選んだ視聴方法(optionId)をセットする。同じものをもう一度押すと解除。
@@ -1362,7 +1457,7 @@ export default function App() {
             </div>
 
             <div style={{ padding: "10px 18px", borderTop: `1px solid ${LINE}`, fontSize: 11, color: INK_SOFT }}>
-              通知トグルは表示のみのデモです。実運用ではブラウザのプッシュ通知権限が別途必要です。
+              通知ベルをONにした作品は、「他の端末と同期」パネルからプッシュ通知を有効にすると配信直前にお知らせが届きます。
             </div>
           </div>
         </div>
@@ -1787,6 +1882,35 @@ export default function App() {
                   {syncMsg}
                 </div>
               )}
+
+              <div style={{ marginTop: 20, paddingTop: 18, borderTop: `1px solid ${LINE}` }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: INK, marginBottom: 6 }}>
+                  配信直前のプッシュ通知
+                </div>
+                <div style={{ fontSize: 12, color: INK_SOFT, lineHeight: 1.6, marginBottom: 12 }}>
+                  通知ベルをONにした作品について、放送・配信の10分ほど前に端末に通知を送ります。上の合言葉に紐づけて管理するので、まだ合言葉を発行していない場合はONにする際に自動で発行されます。
+                </div>
+                <button
+                  onClick={pushEnabled ? disablePush : enablePush}
+                  disabled={pushBusy}
+                  style={{
+                    ...ghostBtn,
+                    width: "100%",
+                    justifyContent: "center",
+                    background: pushEnabled ? "transparent" : PINK,
+                    color: pushEnabled ? INK : "#fff",
+                    border: pushEnabled ? `1px solid ${LINE}` : "none",
+                    opacity: pushBusy ? 0.6 : 1,
+                  }}
+                >
+                  {pushEnabled ? "この端末の通知をOFFにする" : "この端末で通知をONにする"}
+                </button>
+                {pushMsg && (
+                  <div style={{ marginTop: 10, fontSize: 12.5, color: pushMsg.startsWith("エラー") ? "#C0392B" : "#1E7F4C" }}>
+                    {pushMsg}
+                  </div>
+                )}
+              </div>
             </div>
 
             <div style={{ padding: "10px 18px", borderTop: `1px solid ${LINE}`, fontSize: 11, color: INK_SOFT }}>
