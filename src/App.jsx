@@ -565,22 +565,23 @@ export default function App() {
       if (!VAPID_PUBLIC_KEY) {
         throw new Error("通知機能の設定(VAPID鍵)が未完了です");
       }
-      // 通知を紐づけるための合言葉が無ければ、先に自動発行して端末の内容を保存する
+      // 通知を紐づけるための合言葉。既存のものがあれば使い、無ければ新規発行する。
+      // どちらの場合も、この時点の選択状態を必ず同期データとして保存しておく
+      // (合言葉だけあって同期データが無い、という食い違いを防ぐため)
       let code = syncCodeInput.trim();
-      if (!code) {
-        const body = { data: { selected, notify, colorOverrides } };
-        const res = await fetch("/api/sync", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(body),
-        });
-        const json = await res.json();
-        if (!res.ok) throw new Error(json.error || "合言葉の発行に失敗しました");
-        code = json.code;
-        setSyncCode(code);
-        setSyncCodeInput(code);
-        window.localStorage.setItem("anicour-sync-code", code);
-      }
+      const body = { data: { selected, notify, colorOverrides } };
+      if (code) body.code = code;
+      const syncRes = await fetch("/api/sync", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const syncJson = await syncRes.json();
+      if (!syncRes.ok) throw new Error(syncJson.error || "同期データの保存に失敗しました");
+      code = syncJson.code;
+      setSyncCode(code);
+      setSyncCodeInput(code);
+      window.localStorage.setItem("anicour-sync-code", code);
 
       const permission = await Notification.requestPermission();
       if (permission !== "granted") throw new Error("通知が許可されませんでした");
