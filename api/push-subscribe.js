@@ -27,8 +27,8 @@ async function redisRequest(command) {
 function normalizeCode(raw) {
   return String(raw || "")
     .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9\-_]/g, "");
+    .toUpperCase()
+    .replace(/[^A-Z0-9\-_]/g, "");
 }
 
 export default async function handler(req, res) {
