@@ -74,7 +74,7 @@ export default async function handler(req, res) {
       try {
         const [subRaw, syncRaw] = await Promise.all([
           redisRequest(["GET", `anicour:push:${code}`]),
-          redisRequest(["GET", `anicour:sync:${code}`]),
+          redisRequest(["GET", `anicour:${code}`]),
         ]);
         if (!subRaw || !syncRaw) {
           if (debug) debugInfo.push({ code, hasSub: !!subRaw, hasSync: !!syncRaw });
@@ -82,7 +82,8 @@ export default async function handler(req, res) {
         }
 
         const subscription = JSON.parse(subRaw);
-        const syncData = JSON.parse(syncRaw);
+        const syncPayload = JSON.parse(syncRaw);
+        const syncData = syncPayload.data || syncPayload; // {data:{...}} 形式・素の形式どちらでも読めるようにする
         const selected = syncData.selected || [];
         const notify = syncData.notify || {};
 
