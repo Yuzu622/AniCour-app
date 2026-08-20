@@ -4,6 +4,7 @@
 // プッシュ通知を送る。1回の放送につき二重送信しないよう、送信済みフラグをRedisに残す。
 
 import webpush from "web-push";
+import { getProgramPayload } from "./_lib/getPrograms.js";
 
 function getRedisConfig() {
   const url =
@@ -51,11 +52,10 @@ export default async function handler(req, res) {
       return res.status(200).json({ checked: 0, sent: 0, message: "購読なし" });
     }
 
-    // 自分自身の /api/programs を呼んで最新の番組データを1回だけ取得し、全コードで使い回す
-    const proto = req.headers["x-forwarded-proto"] || "https";
-    const host = req.headers.host;
-    const programsResp = await fetch(`${proto}://${host}/api/programs`);
-    const programsData = await programsResp.json();
+    // 以前はここで自分自身の /api/programs をHTTPで呼び出していたが、
+    // Vercelの保護つきURL経由だとHTMLが返ってきてJSON解析に失敗することがあったため、
+    // 共通モジュールを直接呼び出す形に変更した(キャッシュも共有される)
+    const programsData = await getProgramPayload();
     const animeList = programsData.items || [];
     const optionById = new Map();
     for (const a of animeList) {
