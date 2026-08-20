@@ -67,6 +67,8 @@ export default async function handler(req, res) {
     const now = Date.now();
     let sent = 0;
     let errors = 0;
+    const debug = req.query && (req.query.debug === "1" || req.query.debug === "true");
+    const debugInfo = [];
 
     for (const code of codes) {
       try {
@@ -74,7 +76,10 @@ export default async function handler(req, res) {
           redisRequest(["GET", `anicour:push:${code}`]),
           redisRequest(["GET", `anicour:sync:${code}`]),
         ]);
-        if (!subRaw || !syncRaw) continue;
+        if (!subRaw || !syncRaw) {
+          if (debug) debugInfo.push({ code, hasSub: !!subRaw, hasSync: !!syncRaw });
+          continue;
+        }
 
         const subscription = JSON.parse(subRaw);
         const syncData = JSON.parse(syncRaw);
@@ -84,17 +89,35 @@ export default async function handler(req, res) {
         for (const optionId of selected) {
           if (!notify[optionId]) continue;
           const option = optionById.get(optionId);
-          if (!option || !option.airings) continue;
+          if (!option || !option.airings) {
+            if (debug) debugInfo.push({ code, optionId, found: false });
+            continue;
+          }
 
           for (const airing of option.airings) {
             const airTime = new Date(`${airing.key}:00+09:00`).getTime();
-            const diffMin = (airTime - now) / 60000;
+            const diffMin = Math.round((airTime - now) / 60000);
+            const inWindow = diffMin >= 8 && diffMin <= 13;
+
+            if (debug) {
+              debugInfo.push({
+                code,
+                optionId,
+                title: option.title,
+                chName: option.chName,
+                airingKey: airing.key,
+                diffMin,
+                inWindow,
+              });
+            }
+
             // 8〜13分後に始まるものだけ対象(外部cronが5分おき想定なので取りこぼしにくい幅にしている)
-            if (diffMin < 8 || diffMin > 13) continue;
+            if (!inWindow) continue;
 
             const dedupeKey = `anicour:notified:${code}:${optionId}:${airing.key}`;
-            const isFirstTime = await setIfNotExists(dedupeKey, 60 * 60);
+            const isFirstTime = debug ? true : await setIfNotExists(dedupeKey, 60 * 60);
             if (!isFirstTime) continue;
+            if (debug) continue; // debug時は実際には送らない
 
             const payload = JSON.stringify({
               title: `まもなく放送: ${option.title}`,
@@ -119,6 +142,9 @@ export default async function handler(req, res) {
       }
     }
 
+    if (debug) {
+      return res.status(200).json({ checked: codes.length, now: new Date(now).toISOString(), debugInfo });
+    }
     return res.status(200).json({ checked: codes.length, sent, errors });
   } catch (e) {
     return res.status(500).json({ error: "通知チェックエラー: " + (e && e.message ? e.message : String(e)) });
