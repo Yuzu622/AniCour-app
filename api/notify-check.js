@@ -31,6 +31,42 @@ async function setIfNotExists(key, seconds) {
   return result === "OK";
 }
 
+// 合言葉に紐づく購読情報を全端末ぶん取得する。[{endpoint, subscription}, ...] の形で返す。
+// 以前のバージョンの名残で「1件だけの文字列」形式が残っている場合にも対応する。
+async function getSubscriptions(code) {
+  const key = `anicour:push:${code}`;
+  try {
+    const raw = await redisRequest(["HGETALL", key]);
+    const pairs = [];
+    if (Array.isArray(raw)) {
+      for (let i = 0; i < raw.length; i += 2) {
+        pairs.push([raw[i], raw[i + 1]]);
+      }
+    } else if (raw && typeof raw === "object") {
+      for (const [k, v] of Object.entries(raw)) pairs.push([k, v]);
+    }
+    return pairs
+      .map(([endpoint, value]) => {
+        try {
+          return { endpoint, subscription: JSON.parse(value) };
+        } catch (e) {
+          return null;
+        }
+      })
+      .filter(Boolean);
+  } catch (e) {
+    // 型が違う(以前の文字列形式)場合はそのまま1件として読む
+    try {
+      const raw = await redisRequest(["GET", key]);
+      if (!raw) return [];
+      const subscription = JSON.parse(raw);
+      return [{ endpoint: subscription.endpoint, subscription }];
+    } catch (e2) {
+      return [];
+    }
+  }
+}
+
 export default async function handler(req, res) {
   // 誰でも叩けるとスパムや無駄な実行の元になるので、秘密のクエリパラメータで簡易的に保護する
   const secret = req.query.secret;
@@ -72,21 +108,19 @@ export default async function handler(req, res) {
 
     for (const code of codes) {
       try {
-        const [subRaw, syncRaw] = await Promise.all([
-          redisRequest(["GET", `anicour:push:${code}`]),
-          redisRequest(["GET", `anicour:${code}`]),
-        ]);
-        if (!subRaw || !syncRaw) {
-          if (debug) debugInfo.push({ code, hasSub: !!subRaw, hasSync: !!syncRaw });
+        const [subs, syncRaw] = await Promise.all([getSubscriptions(code), redisRequest(["GET", `anicour:${code}`])]);
+        if (subs.length === 0 || !syncRaw) {
+          if (debug) debugInfo.push({ code, subCount: subs.length, hasSync: !!syncRaw });
           continue;
         }
 
-        const subscription = JSON.parse(subRaw);
         const syncPayload = JSON.parse(syncRaw);
         const syncData = syncPayload.data || syncPayload; // {data:{...}} 形式・素の形式どちらでも読めるようにする
         const selected = syncData.selected || [];
         const notify = syncData.notify || {};
 
+        // まず「送るべき通知」をこの合言葉ぶん1回だけ組み立て、登録されている全端末に配る
+        const toSend = [];
         for (const optionId of selected) {
           if (!notify[optionId]) continue;
           const option = optionById.get(optionId);
@@ -120,20 +154,30 @@ export default async function handler(req, res) {
             if (!isFirstTime) continue;
             if (debug) continue; // debug時は実際には送らない
 
-            const payload = JSON.stringify({
+            toSend.push({
               title: `まもなく放送: ${option.title}`,
               body: `${option.chName} ${airing.key.split("T")[1]}〜${airing.episode ? ` (第${airing.episode}話)` : ""}`,
             });
+          }
+        }
 
+        if (toSend.length === 0) continue;
+
+        // 登録されている端末すべてに送信する
+        for (const { endpoint, subscription } of subs) {
+          for (const notification of toSend) {
             try {
-              await webpush.sendNotification(subscription, payload);
+              await webpush.sendNotification(subscription, JSON.stringify(notification));
               sent++;
             } catch (sendErr) {
               errors++;
-              // 購読が無効になっている(端末側で通知オフ・アンインストール等)場合は掃除する
+              // その端末の購読が無効になっている(通知オフ・アンインストール等)場合は、その端末ぶんだけ掃除する
               if (sendErr.statusCode === 404 || sendErr.statusCode === 410) {
-                await redisRequest(["DEL", `anicour:push:${code}`]);
-                await redisRequest(["SREM", "anicour:push:codes", code]);
+                try {
+                  await redisRequest(["HDEL", `anicour:push:${code}`, endpoint]);
+                } catch (cleanupErr) {
+                  // noop
+                }
               }
             }
           }
