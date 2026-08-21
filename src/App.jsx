@@ -617,12 +617,16 @@ export default function App() {
     try {
       const reg = await navigator.serviceWorker.ready;
       const sub = await reg.pushManager.getSubscription();
+      const endpoint = sub ? sub.endpoint : null;
       if (sub) await sub.unsubscribe();
-      if (syncCode) {
-        await fetch(`/api/push-subscribe?code=${encodeURIComponent(syncCode)}`, { method: "DELETE" });
+      if (syncCode && endpoint) {
+        await fetch(
+          `/api/push-subscribe?code=${encodeURIComponent(syncCode)}&endpoint=${encodeURIComponent(endpoint)}`,
+          { method: "DELETE" }
+        );
       }
       setPushEnabled(false);
-      setPushMsg("通知をOFFにしました");
+      setPushMsg("この端末の通知をOFFにしました");
     } catch (e) {
       setPushMsg("エラー: " + e.message);
     }
